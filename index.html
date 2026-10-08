@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AP MMU Dashboards</title>
+<meta name="description" content="Mail Monitoring Unit, Andhra Pradesh Postal Circle: performance dashboards">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1E3A5F; --navy2:#0F2348; --gold:#F7A800; --red:#E0132B;
+  --paper:#F5F7FB; --card:#FFFFFF; --ink:#0F172A; --ink2:#475569; --line:#E2E8F0;
+  --c1:#059669; --c2:#17325C; --c3:#0D7377; --c4:#7286DA;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --paper:#0F1626; --card:#18223A; --ink:#E5E9F2; --ink2:#9AA3B8; --line:#2A3449; }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:15px/1.5 'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  -webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column;
+  padding-bottom:env(safe-area-inset-bottom,0px)}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+
+header{background:linear-gradient(120deg,var(--navy) 0%,#16305A 45%,var(--navy2) 100%);color:#fff;
+  border-bottom:4px solid var(--gold);padding:calc(28px + env(safe-area-inset-top,0px)) 16px 34px}
+.wrap{max-width:1080px;margin:0 auto}
+.brand{display:flex;align-items:center;gap:16px}
+.logo{width:64px;height:64px;border-radius:14px;background:#fff;color:var(--red);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;font:800 17px/1 'Inter Tight',sans-serif;flex:none;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.logo span{font-size:10.5px;margin-top:4px;color:var(--navy);letter-spacing:.05em}
+h1{margin:0;font:800 28px/1.15 'Inter Tight',sans-serif;letter-spacing:-.01em}
+.sub{margin:4px 0 0;color:rgba(255,255,255,.75);font-size:14px}
+
+main{flex:1;padding:28px 16px 40px}
+.lead{margin:0 0 18px;color:var(--ink2);font-size:14.5px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.card{display:flex;gap:16px;align-items:flex-start;text-decoration:none;background:var(--card);border:1px solid var(--line);
+  border-top:5px solid var(--c);border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,.05),0 6px 18px rgba(15,23,42,.06);
+  transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(15,23,42,.14)}
+.ic{width:52px;height:52px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;
+  background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c)}
+.ic svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.card h2{margin:0;font:700 18px/1.3 'Inter Tight',sans-serif}
+.card p{margin:5px 0 10px;color:var(--ink2);font-size:13.5px}
+.go{font-weight:600;font-size:13.5px;color:var(--c)}
+@media (prefers-color-scheme: dark){ .go,.ic{filter:brightness(1.35)} }
+
+footer{text-align:center;color:var(--ink2);font-size:12.5px;padding:0 16px 24px}
+footer b{color:var(--ink)}
+
+@media (max-width:720px){
+  .grid{grid-template-columns:1fr}
+  h1{font-size:22px}
+  .logo{width:54px;height:54px;font-size:15px}
+}
+@media (prefers-reduced-motion:reduce){ .card{transition:none} .card:hover{transform:none} }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap brand">
+    <div class="logo" aria-hidden="true">MMU<span>APCO</span></div>
+    <div>
+      <h1>Performance Dashboards</h1>
+      <p class="sub">Mail Monitoring Unit — Andhra Pradesh Postal Circle</p>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <p class="lead">Choose a dashboard. Each one opens with the latest published figures.</p>
+    <div class="grid">
+
+      <a class="card" href="delivery/" style="--c:var(--c1)">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg></div>
+        <div>
+          <h2>Delivery Performance</h2>
+          <p>Delivery %, D+0 transit, undelivered articles, returns &amp; redirects, mobile app usage and first-mile dispatch.</p>
+          <span class="go">Open dashboard →</span>
+        </div>
+      </a>
+
+      <a class="card" href="bulk/" style="--c:var(--c2)">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8l9-5 9 5-9 5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div>
+        <div>
+          <h2>Bulk Articles Monitoring</h2>
+          <p>Booking office, destination division, standard TAT, pending articles and article search for bulk customers.</p>
+          <span class="go">Open dashboard →</span>
+        </div>
+      </a>
+
+      <a class="card" href="cod/" style="--c:var(--c3)">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M10 7h4M9.5 11h5"/><path d="M12 11v6"/><circle cx="12" cy="19" r=".6"/></svg></div>
+        <div>
+          <h2>CoD Digital Transactions</h2>
+          <p>Digital vs cash collections by region, division, sub-division and office, with daily and monthly rankings.</p>
+          <span class="go">Open dashboard →</span>
+        </div>
+      </a>
+
+      <a class="card" href="pmvk/" style="--c:var(--c4)">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.5 5.5l4 4"/><path d="M4 20l7.5-7.5"/><path d="M13 4l7 7-3 3-7-7z"/><path d="M4 16l4 4"/></svg></div>
+        <div>
+          <h2>PMVK Toolkit Delivery</h2>
+          <p>PM Vishwakarma toolkit delivery status, final pendency, reconciliation and booking-month analysis.</p>
+          <span class="go">Open dashboard →</span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+</main>
+
+<footer><b>apmmu.in</b> · Mail Monitoring Unit, AP Circle</footer>
+</body>
+</html>

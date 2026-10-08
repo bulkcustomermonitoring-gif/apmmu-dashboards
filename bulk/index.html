@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AP Circle — Bulk Articles Monitoring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ---------------------------------------------------------------
+   Tokens. Column-group tints follow the Excel reports
+   (outcome blue, pending pink, TAT green, standard purple, aging amber).
+---------------------------------------------------------------- */
+:root{
+  --navy:#17325c; --navy2:#22457a; --ink:#1b2735; --ink2:#41546b; --ink3:#6c7d91;
+  --paper:#f2f4f7; --card:#ffffff; --line:#d8dee7; --line2:#e8ecf1;
+  --red:#b3132b; --red-bg:#fbe7ea; --green:#1d7a46; --green-bg:#e3f3e9;
+  --amber:#9a5b00; --amber-bg:#fdf1dc; --blue:#1f5fae;
+  --g-out:#e7eef8; --g-out-h:#d0dff2;
+  --g-pend:#f8e9ee; --g-pend-h:#f0d3dd;
+  --g-tat:#e8f4ea; --g-tat-h:#d0e8d4;
+  --g-std:#f1eaf6; --g-std-h:#e2d4ec;
+  --g-age:#fdf3e1; --g-age-h:#f9e1b8;
+  --g-lead:#f4f6f9; --g-lead-h:#e3e8ef;
+  --grid:#b4c0cf; --grid2:#7d8ca1;
+  --sans:'IBM Plex Sans',system-ui,'Segoe UI',Arial,sans-serif;
+  --cond:'IBM Plex Sans Condensed','Arial Narrow','Segoe UI',Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;
+  padding-bottom:env(safe-area-inset-bottom,0px)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* ---------- header ---------- */
+.hdr{background:var(--navy);color:#fff;position:sticky;top:0;z-index:50;
+  padding-top:env(safe-area-inset-top,0px)}
+.hdr::after{content:"";display:block;height:4px;
+  background:linear-gradient(90deg,#ff9933 0 33.3%,#fff 33.3% 66.6%,#138808 66.6%)}
+.hdr-in{max-width:1680px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.hdr h1{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.hdr .sub{color:#b9cbe4;font-size:13px;margin-top:2px;max-width:min(1100px,70vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:700px){.hdr .sub{max-width:100%;white-space:normal}}
+.hdr .grow{flex:1}
+.hbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:7px;
+  padding:7px 14px;cursor:pointer;font-size:13px;font-weight:500}
+.hbtn:hover{background:rgba(255,255,255,.2)}
+.hbtn[disabled]{opacity:.5;cursor:wait}
+
+/* ---------- filters ---------- */
+.fbar{background:var(--card);border-bottom:1px solid var(--line)}
+.fbar-in{max-width:1680px;margin:0 auto;padding:10px 24px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.fld{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fld label{font-size:12px;color:var(--ink3);font-weight:500}
+.fld select,.fld input{height:34px;border:1px solid var(--line);border-radius:6px;background:#fff;padding:0 8px;min-width:120px;max-width:260px}
+.fld input[type=date]{min-width:140px}
+.fld input.cust{min-width:220px}
+.lnk{background:none;border:0;color:var(--blue);cursor:pointer;font-weight:600;padding:8px 4px;height:34px}
+.fsum{font-size:13px;color:var(--ink2);margin-left:auto;align-self:center}
+.fsum b{color:var(--ink)}
+
+/* ---------- tabs ---------- */
+.tabs{max-width:1680px;margin:0 auto;padding:0 24px;display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line)}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:12px 14px 9px;cursor:pointer;
+  font-weight:600;color:var(--ink2);white-space:nowrap;font-size:14px}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected=true]{color:var(--navy);border-bottom-color:var(--navy)}
+main{max-width:1680px;margin:0 auto;padding:20px 24px 48px}
+.panel[hidden]{display:none}
+
+/* ---------- blocks ---------- */
+.sec{margin-bottom:26px}
+.sec-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.sec-h h2{font-size:17px;font-weight:700}
+.sec-h p{color:var(--ink3);font-size:13px}
+.sec-h .tools{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#fff}
+.seg button{border:0;background:none;padding:6px 12px;cursor:pointer;font-size:13px;color:var(--ink2);font-weight:500}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed=true]{background:var(--navy);color:#fff}
+.btn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:500}
+.btn:hover{border-color:var(--ink3)}
+.btn.red{color:var(--red);border-color:#e7b5bd}
+.search{height:32px;border:1px solid var(--line);border-radius:7px;padding:0 10px;min-width:200px}
+.sel{height:32px;border:1px solid var(--line);border-radius:7px;padding:0 8px;background:#fff}
+
+/* KPI row: one wide figure line, not cards */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));background:var(--card);
+  border:1px solid var(--line);border-radius:10px;margin-bottom:22px}
+.kpi{padding:14px 18px;border-right:1px solid var(--line2);cursor:default}
+.kpi:last-child{border-right:0}
+.kpi[data-list]{cursor:pointer}
+.kpi[data-list]:hover{background:#f7f9fc}
+.kpi .v{font-size:26px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.15}
+.kpi .l{font-size:13px;color:var(--ink2);margin-top:2px}
+.kpi .s{font-size:12px;color:var(--ink3);margin-top:2px}
+.kpi.good .v{color:var(--green)} .kpi.bad .v{color:var(--red)} .kpi.warn .v{color:var(--amber)}
+
+.split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:16px;align-items:start}
+.split .tw{max-height:none}
+.lg td .sb{display:inline-block;height:9px;background:var(--navy);border-radius:2px;vertical-align:middle}
+.lg td.bar{text-align:left;min-width:120px}
+@media (max-width:1100px){.split{grid-template-columns:1fr}}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px}
+.chart{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.chart h3{font-size:14px;font-weight:600;margin-bottom:8px}
+.chart .cv{position:relative;height:260px}
+
+/* ---------- ledger tables ---------- */
+.tw{overflow:auto;max-height:72vh;background:var(--card);border:1px solid var(--grid2);border-radius:8px}
+table.lg{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-family:var(--cond);font-size:13px;font-variant-numeric:tabular-nums}
+.lg th,.lg td{padding:5px 9px;border-bottom:1px solid var(--grid);border-right:1px solid var(--grid);white-space:nowrap}
+.lg tr>*:last-child{border-right:0}
+.lg thead tr:last-child th{border-bottom:2px solid var(--grid2)}
+.lg thead tr.gr th{border-bottom:1px solid var(--grid2)}
+.lg .gs{border-left:2px solid var(--grid2)}
+.lg td.lead,.lg th.lead{border-right:2px solid var(--grid2)}
+.lg thead th{position:sticky;z-index:2;font-weight:600;text-align:center;color:var(--ink)}
+.lg thead tr.gr th{top:0;font-size:12px;color:var(--ink2);font-weight:600}
+.lg thead tr.hd th{top:29px;cursor:pointer;vertical-align:bottom;white-space:normal;min-width:62px;line-height:1.2}
+.lg thead tr.hd th.lead{text-align:left}
+.lg thead tr.hd th[aria-sort]::after{content:"";display:inline-block;margin-left:4px;border:4px solid transparent}
+.lg thead tr.hd th[aria-sort=descending]::after{border-top-color:var(--ink2);transform:translateY(2px)}
+.lg thead tr.hd th[aria-sort=ascending]::after{border-bottom-color:var(--ink2);transform:translateY(-2px)}
+.lg td{text-align:right}
+.lg td.lead{text-align:left;font-family:var(--sans);font-size:13px;position:sticky;left:0;z-index:1;background:var(--card);max-width:300px;overflow:hidden;text-overflow:ellipsis}
+.lg td.lead2{text-align:left;font-family:var(--sans);font-size:13px;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+.lg thead th.lead{position:sticky;left:0;z-index:3}
+.lg .h-lead{background:var(--g-lead-h)} .lg .h-out{background:var(--g-out-h)} .lg .h-pend{background:var(--g-pend-h)}
+.lg .h-tat{background:var(--g-tat-h)} .lg .h-std{background:var(--g-std-h)} .lg .h-age{background:var(--g-age-h)}
+.lg .c-out{background:var(--g-out)} .lg .c-pend{background:var(--g-pend)} .lg .c-tat{background:var(--g-tat)}
+.lg .c-std{background:var(--g-std)} .lg .c-age{background:var(--g-age)}
+.lg td.k{cursor:pointer}
+.lg td.k:hover{outline:2px solid var(--blue);outline-offset:-2px}
+.lg td.z{color:#b6c0cc}
+.lg td.bad{color:var(--red);font-weight:700}
+.lg td.good{color:var(--green);font-weight:600}
+.lg tr.sub td{font-weight:700;background-image:linear-gradient(rgba(23,50,92,.06),rgba(23,50,92,.06))}
+.lg tr.sub td.lead{background:#e9eef5}
+.lg tr.tot td{font-weight:700;border-top:2px solid var(--navy);background-image:linear-gradient(rgba(23,50,92,.1),rgba(23,50,92,.1))}
+.lg tr.tot td.lead{background:#dfe6f0}
+.lg td.lead .lk{color:var(--blue);cursor:pointer;text-decoration:underline;text-decoration-color:#9fb6d6;text-underline-offset:2px}
+.lg tr.l2 td.lead{padding-left:22px}
+.more{padding:10px;text-align:center;color:var(--ink3);font-size:13px}
+
+/* heat matrix */
+.mx td.cell{min-width:58px;text-align:center;cursor:pointer}
+.mx td.cell:hover{outline:2px solid var(--ink);outline-offset:-2px}
+
+/* ---------- modal ---------- */
+.ov{position:fixed;inset:0;background:rgba(15,25,40,.55);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:4vh 16px}
+.ov[hidden]{display:none}
+.md{background:#fff;border-radius:12px;width:min(1500px,100%);max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.md-h{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.md-h h3{font-size:16px;font-weight:700}
+.md-h .n{color:var(--ink3);font-size:13px}
+.md-h .grow{flex:1}
+.md-b{overflow:auto}
+.md .lg td{text-align:left}
+.md .lg td.r{text-align:right}
+
+/* ---------- status / loader ---------- */
+.load{max-width:620px;margin:12vh auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:28px}
+.load h2{font-size:18px;margin-bottom:6px}
+.load p{color:var(--ink2)}
+.bar{height:6px;background:var(--line2);border-radius:3px;margin-top:16px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--navy);transition:width .3s}
+.err{color:var(--red);font-weight:600;margin-top:12px;white-space:pre-wrap}
+.srcs{margin-top:14px;font-size:13px;color:var(--ink2);display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:4px 12px}
+.srcs .ok::before{content:"● ";color:var(--green)} .srcs .no::before{content:"● ";color:#b6c0cc} .srcs .bad::before{content:"● ";color:var(--red)}
+.foot{max-width:1680px;margin:0 auto;padding:0 24px 28px;color:var(--ink3);font-size:12px}
+.note{font-size:13px;color:var(--ink2);background:var(--card);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:8px;padding:10px 14px;margin-bottom:16px}
+textarea.arts{width:100%;min-height:110px;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--cond);font-size:14px}
+
+@media (max-width:700px){
+  .hdr{position:static}
+  .hdr-in,.fbar-in,main,.tabs,.foot{padding-left:12px;padding-right:12px}
+  .fld select,.fld input,.fld input.cust{min-width:0;width:100%;max-width:none}
+  .fld{flex:1 1 45%}
+  .fsum{margin-left:0}
+  .kpi .v{font-size:21px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-in">
+    <div>
+      <h1>AP Circle — Bulk Articles Monitoring</h1>
+      <div class="sub" id="hdrSub">Loading data…</div>
+    </div>
+    <div class="grow"></div>
+    <button class="hbtn" id="btnReload" title="Load the latest cached data">Refresh</button>
+    <button class="hbtn" id="btnRebuild" title="Re-read changed Bulk sheets now (takes 1–5 minutes)">Rebuild from sheets</button>
+  </div>
+</header>
+
+<div class="fbar" id="fbar" hidden>
+  <div class="fbar-in">
+    <div class="fld"><label for="fBoff">Booking office</label><select id="fBoff"></select></div>
+    <div class="fld"><label for="fFrom">Booked from</label><input type="date" id="fFrom"></div>
+    <div class="fld"><label for="fTo">Booked to</label><input type="date" id="fTo"></div>
+    <div class="fld"><label for="fCust">Customer (name or ID)</label><input class="cust" id="fCust" list="custList" placeholder="All customers" autocomplete="off"><datalist id="custList"></datalist></div>
+    <div class="fld"><label for="fAtype">Article type</label><select id="fAtype"></select></div>
+    <div class="fld"><label for="fScope">Destination</label>
+      <select id="fScope"><option value="all">All circles</option><option value="ap">Andhra Pradesh</option><option value="out">Outside Andhra Pradesh</option></select></div>
+    <button class="lnk" id="fReset">Clear filters</button>
+    <div class="fsum" id="fSum"></div>
+  </div>
+</div>
+
+<nav class="tabs" id="tabs" role="tablist" hidden></nav>
+
+<main>
+  <div class="load" id="loader">
+    <h2>Loading bulk article data</h2>
+    <p id="loadMsg">Contacting the data service…</p>
+    <div class="bar"><i id="loadBar"></i></div>
+    <div class="srcs" id="loadSrcs"></div>
+    <div class="err" id="loadErr"></div>
+  </div>
+
+  <section class="panel" id="p-overview" hidden></section>
+  <section class="panel" id="p-booking" hidden></section>
+  <section class="panel" id="p-region" hidden></section>
+  <section class="panel" id="p-dest" hidden></section>
+  <section class="panel" id="p-std" hidden></section>
+  <section class="panel" id="p-pending" hidden></section>
+  <section class="panel" id="p-atype" hidden></section>
+  <section class="panel" id="p-cust" hidden></section>
+  <section class="panel" id="p-circle" hidden></section>
+  <section class="panel" id="p-search" hidden></section>
+</main>
+<div class="foot" id="foot"></div>
+
+<div class="ov" id="ov" hidden role="dialog" aria-modal="true" aria-labelledby="mdTitle">
+  <div class="md">
+    <div class="md-h">
+      <h3 id="mdTitle"></h3><span class="n" id="mdN"></span>
+      <div class="grow"></div>
+      <input class="search" id="mdSearch" placeholder="Find in this list">
+      <button class="btn" id="mdCsv">Download CSV</button>
+      <button class="btn" id="mdClose">Close</button>
+    </div>
+    <div class="md-b" id="mdBody"></div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   CONFIG — paste the Apps Script Web app URL (ends with /exec)
+   ===================================================================== */
+const API_URL = 'https://script.google.com/macros/s/AKfycbyfvUbolSO9LbBClmt6PViGZDwFhw31D29OzqsxkLPPH_KgVPb9dpBK1sg_e-JDlZ4P/exec';
+const HOME_CIRCLE = 'Andhra Pradesh';
+
+/* =====================================================================
+   DATA LOADING
+   ===================================================================== */
+const DIMS = ['off','div','reg','cir','cust','atype','boff','bdiv','ev','evoff','st','chan'];
+const NUMS = ['bday','dday','evmin','tat','std','dpin'];
+let D = null;          // merged data store
+let IDX = new Int32Array(0);   // rows passing the filters
+const ui = {};         // per-tab UI state
+
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function fmt(n){return n==null||isNaN(n)?'':Math.round(n).toLocaleString('en-IN')}
+function pct(a,b){return b>0?(a/b*100):NaN}
+function fpct(v){return isNaN(v)?'':v.toFixed(1)+'%'}
+function fshare(v){return isNaN(v)?'':(v>0&&v<1?v.toFixed(2):v.toFixed(1))+'%'}
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function dstr(day){if(day<0)return'';const d=new Date(day*86400000);return String(d.getUTCDate()).padStart(2,'0')+'-'+MON[d.getUTCMonth()]+'-'+d.getUTCFullYear()}
+function diso(day){return new Date(day*86400000).toISOString().slice(0,10)}
+function isoDay(s){if(!s)return null;const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?Math.floor(Date.UTC(+m[1],+m[2]-1,+m[3])/86400000):null}
+function evstr(min){if(min<0)return'';const d=new Date((min+330)*60000);return dstr(Math.floor((min+330)/1440))+' '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')}
+
+async function getJSON(url){
+  const r = await fetch(url,{redirect:'follow'});
+  const t = await r.text();
+  try{return JSON.parse(t)}catch(e){throw new Error('The data service did not return JSON. Check API_URL and that the web app is deployed for "Anyone".')}
+}
+async function gunzipB64(b64){
+  const clean = String(b64).replace(/\s+/g,'').replace(/-/g,'+').replace(/_/g,'/');
+  const bin = atob(clean); const u = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+  if(!('DecompressionStream' in window)) throw new Error('This browser cannot unpack the data. Use a current Chrome, Edge, Firefox or Safari.');
+  const s = new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return JSON.parse(await new Response(s).text());
+}
+
+/* one sheet's data: compressed first, plain JSON as fallback */
+function tryJSON(t){try{return JSON.parse(t)}catch(e){return null}}
+function snippet(t){return String(t).replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,300)}
+async function fetchText(url){const r=await fetch(url,{redirect:'follow'});return {status:r.status,text:await r.text()}}
+async function fetchPart(s){
+  const base=API_URL+'?action=part&i='+s.i;
+  let first='';
+  try{
+    const r=await fetchText(base); first=r.text;
+    const env=tryJSON(r.text);
+    if(env&&env.ok===false) throw new Error(s.name+': '+(env.error||'not available'));
+    if(env&&env.b64) return await gunzipB64(env.b64);
+    if(!env&&/^[A-Za-z0-9+\/=_\-\s]+$/.test(r.text.slice(0,2000))) return await gunzipB64(r.text);   // older Code.gs
+  }catch(e){ if(/not available|No cache/.test(e.message)) throw e; console.warn(s.name+': compressed download failed, trying plain JSON',e) }
+  const r2=await fetchText(base+'&fmt=json');
+  const obj=tryJSON(r2.text);
+  if(obj&&obj.cols) return obj;
+  if(obj&&obj.ok===false) throw new Error(s.name+': '+(obj.error||'not available'));
+  throw new Error(s.name+': the data service sent back a page instead of data (HTTP '+r2.status+'). '+
+    'It said: “'+(snippet(r2.text)||snippet(first)||'(empty)')+'”. Check the deployment is a new version of the latest Code.gs, '+
+    'with Execute as “Me” and access “Anyone”.');
+}
+
+/* small IndexedDB cache so unchanged sheets are not downloaded again */
+const idb = {
+  db:null,
+  async open(){ if(this.db) return this.db;
+    this.db = await new Promise((res,rej)=>{const q=indexedDB.open('bulk-monitor',1);
+      q.onupgradeneeded=()=>q.result.createObjectStore('parts');q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)});
+    return this.db },
+  async get(k){try{const db=await this.open();return await new Promise(r=>{const q=db.transaction('parts').objectStore('parts').get(k);q.onsuccess=()=>r(q.result||null);q.onerror=()=>r(null)})}catch(e){return null}},
+  async put(k,v){try{const db=await this.open();db.transaction('parts','readwrite').objectStore('parts').put(v,k)}catch(e){}},
+  async prune(keep){try{const db=await this.open();const st=db.transaction('parts','readwrite').objectStore('parts');
+      const q=st.getAllKeys();q.onsuccess=()=>q.result.forEach(k=>{if(!keep.includes(k))st.delete(k)})}catch(e){}}
+};
+
+async function loadAll(){
+  $('loader').hidden=false; $('loadErr').textContent='';
+  if(API_URL.indexOf('http')!==0){
+    $('loadMsg').textContent='The dashboard is not connected yet.';
+    $('loadErr').textContent='Open this HTML file in a text editor and paste your Apps Script Web app URL into API_URL (near the top of the script).';
+    return;
+  }
+  setLoad('Fetching the list of Bulk sheets…',3);
+  const man = await getJSON(API_URL+'?action=manifest');
+  if(!man.ok) throw new Error(man.error||'Data service error');
+  renderSrcs(man.sources,{});
+  const srcs = man.sources.filter(s=>s.ready&&s.rows>0);
+  if(!srcs.length) throw new Error('No Bulk sheet has been cached yet. Run setup() in the Apps Script project, or press "Rebuild from sheets".');
+  const parts=[], state={}; let done=0;
+  const keys = srcs.map(s=>s.name+'@'+s.version);
+  const queue = srcs.slice();
+  async function worker(){
+    while(queue.length){
+      const s=queue.shift(); const key=s.name+'@'+s.version;
+      let obj = await idb.get(key);
+      if(!obj){
+        obj = await fetchPart(s);
+        idb.put(key,obj);
+      }
+      parts[s.i]=obj; state[s.i]='ok'; done++;
+      setLoad('Loaded '+done+' of '+srcs.length+' sheets…',5+90*done/srcs.length);
+      renderSrcs(man.sources,state);
+    }
+  }
+  await Promise.all([worker(),worker(),worker(),worker()]);
+  idb.prune(keys);
+  setLoad('Preparing the dashboard…',97);
+  await new Promise(r=>setTimeout(r,20));
+  D = buildStore(parts.filter(Boolean), man);
+  $('loader').hidden=true;
+  startUI();
+}
+function setLoad(msg,p){$('loadMsg').textContent=msg;$('loadBar').style.width=p+'%'}
+function renderSrcs(list,state){
+  $('loadSrcs').innerHTML=list.map(s=>{
+    const c = s.error?'bad':(state[s.i]==='ok'?'ok':'no');
+    const t = s.error?(' — '+s.error):(s.rows?(' '+fmt(s.rows)):' empty');
+    return '<span class="'+c+'" title="'+esc(s.builtAt||'')+'">'+esc(s.name)+esc(t)+'</span>'}).join('');
+}
+
+/* merge the parts into one columnar store */
+function buildStore(parts, man){
+  const dict={}, dmap={};
+  DIMS.forEach(k=>{dict[k]=[];dmap[k]=new Map()});
+  let N=0; parts.forEach(p=>N+=p.rows);
+  const C={};
+  DIMS.forEach(k=>C[k]=new Int32Array(N));
+  NUMS.forEach(k=>C[k]=new Int32Array(N));
+  C.art=new Array(N); C.src=new Uint8Array(N);
+  let o=0;
+  parts.forEach(p=>{
+    const re={};
+    DIMS.forEach(k=>{re[k]=(p.dicts[k]||[]).map(v=>{let c=dmap[k].get(v);if(c===undefined){c=dict[k].length;dict[k].push(v);dmap[k].set(v,c)}return c})});
+    const pc=p.cols;
+    for(let r=0;r<p.rows;r++){
+      const i=o+r;
+      for(const k of DIMS){C[k][i]=re[k][pc[k][r]]}
+      for(const k of NUMS){C[k][i]=pc[k]?pc[k][r]:-1}
+      C.art[i]=pc.art[r]; C.src[i]=p.i;
+    }
+    o+=p.rows;
+  });
+
+  // Booking offices that arrive as a bare PIN: name them from the destination
+  // data (same PIN as a destination office), e.g. "515231" -> "Gorantla S.O (515231)".
+  const pinName=new Map();
+  for(let i=0;i<N;i++){const pn=C.dpin[i];if(pn>0&&!pinName.has(pn))pinName.set(pn,dict.off[C.off[i]])}
+  dict.boff=dict.boff.map(v=>{const t=String(v).trim();if(!/^\d{4,6}$/.test(t))return v;
+    const nm=pinName.get(+t);return nm&&nm!=='(Unmapped)'?nm+' ('+t+')':'PIN '+t});
+
+  // Booking dates with day and month swapped (01-10 read as 10-Jan): repair using
+  // the last event date (same rule as Code.gs / macro v3.0), for data cached earlier.
+  let swapped=0;
+  for(let i=0;i<N;i++){const b=C.bday[i],em=C.evmin[i];if(b<0||em<0)continue;const ev=Math.floor((em+330)/1440);
+    if(!(b>ev||ev-b>60))continue;const dt=new Date(b*86400000),d=dt.getUTCDate(),m=dt.getUTCMonth()+1;if(d>12||d===m)continue;
+    const sw=Math.floor(Date.UTC(dt.getUTCFullYear(),d-1,m)/86400000);if(sw<=ev&&ev-sw<=60){C.bday[i]=sw;swapped++}}
+
+  // duplicate article numbers across sheets: keep the latest event
+  const keep=new Uint8Array(N).fill(1); const seen=new Map(); let dup=0;
+  for(let i=0;i<N;i++){const a=C.art[i];const j=seen.get(a);
+    if(j===undefined){seen.set(a,i)}else{dup++; if(C.evmin[i]>=C.evmin[j]){keep[j]=0;seen.set(a,i)}else keep[i]=0}}
+
+  // status: 0 delivered, 1 delivered to sender, 2 returned to sender, 3 pending
+  const stCode=dict.st.map(s=>{const t=s.toLowerCase();
+    if(t==='delivered')return 0; if(t.indexOf('delivered to sender')>=0)return 1; if(t.indexOf('returned')>=0)return 2; return 3});
+  const S=new Uint8Array(N); let maxEv=-1;
+  for(let i=0;i<N;i++){S[i]=stCode[C.st[i]]; if(keep[i]&&C.evmin[i]>maxEv)maxEv=C.evmin[i]}
+  const asOf = maxEv>0?Math.floor((maxEv+330)/1440):Math.floor(Date.now()/86400000);
+
+  // holidays (Holidays tab of Bulk1): skipped ONLY when one falls on the last day
+  // of the standard TAT (booking + std). Same rule as macro v2.9.
+  const HOL=new Set(man.holidays||[]), SUN=!!man.sundayHoliday;
+  const isHol=d=>HOL.has(d)||(SUN&&((d+4)%7===0));
+  const holAdj=(b,e,std)=>{
+    if(std<0||(!HOL.size&&!SUN))return 0;
+    const dl=b+std;let k=0;while(k<30&&isHol(dl+k))k++;
+    if(!k)return 0;const past=e-dl;return past<=0?0:Math.min(k,past)};
+  const daysTo=(b,e,std)=>Math.max(0,e-b)-holAdj(b,e,std);
+  // derived: delivery TAT, pending aging, standard TAT result
+  //   STD: 1 within, 2 beyond, 3 no standard (delivered) | 4 within so far, 5 overdue, 6 no standard (pending)
+  const TAT=new Int32Array(N).fill(-1), AG=new Int32Array(N).fill(-1), STD=new Uint8Array(N);
+  const HA=new Uint8Array(N), RAW=new Int32Array(N).fill(-1);   // holiday days removed, calendar days
+  for(let i=0;i<N;i++){
+    const s=S[i], std=C.std[i];
+    if(s===0){
+      // TAT is worked out here from the dates (not taken from the sheet), so the
+      // holiday rule applies even to data processed with an older macro.
+      let t=C.tat[i];
+      if(C.dday[i]>=0&&C.bday[i]>=0){const raw=Math.max(0,C.dday[i]-C.bday[i]);const a=holAdj(C.bday[i],C.dday[i],std);RAW[i]=raw;HA[i]=a;t=raw-a}
+      TAT[i]=t;
+      STD[i]= (std>=0&&t>=0)?(t<=std?1:2):3;
+    }else if(s===3){
+      if(C.bday[i]>=0){const raw=Math.max(0,asOf-C.bday[i]);const a=holAdj(C.bday[i],asOf,std);RAW[i]=raw;HA[i]=a;AG[i]=raw-a}
+      STD[i]= std>=0?(AG[i]>std?5:4):6;
+    }
+  }
+  const apCode = dict.cir.indexOf(HOME_CIRCLE);
+  const custByBoff=new Map();
+  for(let i=0;i<N;i++){if(!keep[i])continue;let st=custByBoff.get(C.boff[i]);if(!st){st=new Set();custByBoff.set(C.boff[i],st)}st.add(C.cust[i])}
+  const custLabel = dict.cust.map(s=>{const p=s.split('|');return (p.slice(1).join('|')||'(no name)')+' ('+p[0]+')'});
+  let minDay=Infinity,maxDay=-1;
+  for(let i=0;i<N;i++){const b=C.bday[i];if(b<0)continue;if(b<minDay)minDay=b;if(b>maxDay)maxDay=b}
+  const holDays=[...HOL].sort((a,b)=>a-b), holNames=man.holidayNames||{};
+  return {N,C,dict,S,TAT,AG,STD,HA,RAW,swapped,keep,dup,asOf,apCode,custLabel,custByBoff,holCount:HOL.size,holDays,holNames,sunHol:SUN,man,minDay,maxDay};
+}
+
+/* =====================================================================
+   FILTERS
+   ===================================================================== */
+const F={boff:-1,from:null,to:null,cust:'',atype:-1,scope:'all'};
+let custOK=null;
+
+function startUI(){
+  const d=D.dict;
+  const opt=(arr)=>'<option value="-1">All</option>'+arr.map((v,i)=>[v,i]).sort((a,b)=>a[0].localeCompare(b[0])).map(([v,i])=>'<option value="'+i+'">'+esc(v)+'</option>').join('');
+  $('fBoff').innerHTML=opt(d.boff);
+  $('fAtype').innerHTML=opt(d.atype);
+  fillCustList(-1);
+  $('fFrom').min=$('fTo').min=diso(D.minDay); $('fFrom').max=$('fTo').max=diso(D.maxDay);
+  $('fbar').hidden=false; $('tabs').hidden=false;
+  const offCnt=new Map();for(let i=0;i<D.N;i++)if(D.keep[i])offCnt.set(D.C.boff[i],(offCnt.get(D.C.boff[i])||0)+1);
+  const offTop=[...offCnt.entries()].sort((a,b)=>b[1]-a[1]);
+  const offTxt=offTop.length<=4?'Booked at '+offTop.map(x=>d.boff[x[0]]).join(', ')
+    :'Booked at '+fmt(offTop.length)+' offices (largest: '+offTop.slice(0,3).map(x=>d.boff[x[0]]).join(', ')+')';
+  $('hdrSub').textContent=(D.holCount?D.holCount+' holiday'+(D.holCount>1?'s':'')+' applied · ':'')+offTxt+' · data as on '+dstr(D.asOf)+' · '+fmt(D.N-D.dup)+' articles';
+  $('hdrSub').title=offTop.map(x=>d.boff[x[0]]+': '+fmt(x[1])).join('\n');
+  const srcs=D.man.sources.filter(s=>s.rows>0);
+  $('foot').textContent='Sheets: '+srcs.map(s=>s.name+' '+fmt(s.rows)+(s.builtAt?' (cached '+new Date(s.builtAt).toLocaleString('en-IN')+')':'')).join(' · ')+
+    (D.swapped?' · '+fmt(D.swapped)+' booking dates had day and month swapped (e.g. 10-Jan for 01-Oct) and were corrected.':'')+
+    (D.dup?' · '+fmt(D.dup)+' duplicate article numbers found across sheets; the latest event of each is used.':'')+
+    ' · Aging is counted to '+dstr(D.asOf)+', the date of the latest event in the data.'+
+    ' · '+(D.holCount?D.holCount+' holiday'+(D.holCount>1?'s':'')+(D.sunHol?' (plus Sundays)':'')+' listed: a holiday on the last day of the standard TAT is not counted.':'No holidays listed (Holidays tab in Bulk1 is empty).');
+  buildTabs();
+  applyFilters();
+}
+function fillCustList(boff){
+  const set=boff>=0?D.custByBoff.get(boff):null;
+  const codes=set?[...set]:D.custLabel.map((_,k)=>k);
+  codes.sort((a,b)=>D.custLabel[a].localeCompare(D.custLabel[b]));
+  $('custList').innerHTML=codes.map(k=>'<option value="'+esc(D.custLabel[k])+'">').join('');
+  $('fCust').placeholder=set?'All '+fmt(codes.length)+' customers of this office':'All customers';
+}
+function readFilters(){
+  F.boff=+$('fBoff').value; F.atype=+$('fAtype').value; F.scope=$('fScope').value;
+  F.from=isoDay($('fFrom').value); F.to=isoDay($('fTo').value);
+  F.cust=$('fCust').value.trim().toLowerCase();
+  custOK = F.cust? D.custLabel.map(l=>l.toLowerCase().indexOf(F.cust)>=0) : null;
+}
+function applyFilters(){
+  readFilters();
+  const {N,C,keep}=D; const out=new Int32Array(N); let n=0;
+  for(let i=0;i<N;i++){
+    if(!keep[i])continue;
+    if(F.boff>=0&&C.boff[i]!==F.boff)continue;
+    if(F.atype>=0&&C.atype[i]!==F.atype)continue;
+    if(F.from!==null&&C.bday[i]<F.from)continue;
+    if(F.to!==null&&C.bday[i]>F.to)continue;
+    if(custOK&&!custOK[C.cust[i]])continue;
+    if(F.scope==='ap'&&C.cir[i]!==D.apCode)continue;
+    if(F.scope==='out'&&C.cir[i]===D.apCode)continue;
+    out[n++]=i;
+  }
+  IDX=out.subarray(0,n);
+  const parts=[];
+  if(F.boff>=0)parts.push(D.dict.boff[F.boff]);
+  if(F.from!==null||F.to!==null)parts.push((F.from!==null?dstr(F.from):'start')+' to '+(F.to!==null?dstr(F.to):'latest'));
+  if(F.cust)parts.push('customer “'+$('fCust').value.trim()+'”');
+  if(F.atype>=0)parts.push(D.dict.atype[F.atype]);
+  if(F.scope!=='all')parts.push(F.scope==='ap'?'to Andhra Pradesh':'outside Andhra Pradesh');
+  $('fSum').innerHTML='<b>'+fmt(n)+'</b> articles'+(parts.length?' · '+esc(parts.join(' · ')):'');
+  renderTab(true);
+}
+['fAtype','fScope','fFrom','fTo'].forEach(id=>$(id).addEventListener('change',applyFilters));
+$('fBoff').addEventListener('change',()=>{fillCustList(+$('fBoff').value);applyFilters()});
+let custT; $('fCust').addEventListener('input',()=>{clearTimeout(custT);custT=setTimeout(applyFilters,350)});
+$('fReset').addEventListener('click',()=>{$('fBoff').value='-1';fillCustList(-1);$('fAtype').value='-1';$('fScope').value='all';$('fFrom').value='';$('fTo').value='';$('fCust').value='';applyFilters()});
+
+/* rows of IDX restricted to the home circle (AP tabs) */
+function apRows(){const a=D.apCode,c=D.C.cir;const out=[];for(const i of IDX)if(c[i]===a)out.push(i);return out}
+
+/* =====================================================================
+   AGGREGATION
+   ===================================================================== */
+function newStat(){return{n:0,d:0,s:0,r:0,p:0,ts:0,tn:0,tm:0,tb0:0,tb1:0,tb2:0,tb3:0,w:0,b:0,ns:0,pw:0,po:0,pns:0,ab0:0,ab1:0,ab2:0,ab3:0,old:0,ev:null}}
+function band(x){return x<3?0:x<7?1:x<15?2:3}
+function addRow(st,i){
+  const s=D.S[i]; st.n++;
+  if(s===0){st.d++;const t=D.TAT[i];if(t>=0){st.ts+=t;st.tn++;if(t>st.tm)st.tm=t;st['tb'+band(t)]++}}
+  else if(s===1)st.s++; else if(s===2)st.r++;
+  else{st.p++;const a=D.AG[i];if(a>=0){st['ab'+band(a)]++;if(a>st.old)st.old=a}}
+  switch(D.STD[i]){case 1:st.w++;break;case 2:st.b++;break;case 3:st.ns++;break;case 4:st.pw++;break;case 5:st.po++;break;case 6:st.pns++;break}
+  if(!st.ev)st.ev=new Int32Array(D.dict.ev.length);
+  st.ev[D.C.ev[i]]++;
+}
+function aggregate(rows,keyFn){const m=new Map();for(const i of rows){const k=keyFn(i);let s=m.get(k);if(!s){s=newStat();m.set(k,s)}addRow(s,i)}return m}
+function total(rows){const s=newStat();for(const i of rows)addRow(s,i);return s}
+
+/* metric -> row predicate, for drill-down lists */
+function metricPred(m){
+  const S=D.S,TAT=D.TAT,AG=D.AG,STD=D.STD,EV=D.C.ev;
+  if(m.startsWith('ev'))return i=>EV[i]===+m.slice(2);
+  switch(m){
+    case'n':return()=>true; case'd':return i=>S[i]===0; case's':return i=>S[i]===1; case'r':return i=>S[i]===2; case'p':return i=>S[i]===3;
+    case'tb0':case'tb1':case'tb2':case'tb3':{const b=+m[2];return i=>S[i]===0&&TAT[i]>=0&&band(TAT[i])===b}
+    case'ab0':case'ab1':case'ab2':case'ab3':{const b=+m[2];return i=>S[i]===3&&AG[i]>=0&&band(AG[i])===b}
+    case'w':return i=>STD[i]===1; case'b':return i=>STD[i]===2; case'ns':return i=>STD[i]===3;
+    case'pw':return i=>STD[i]===4; case'po':return i=>STD[i]===5; case'pns':return i=>STD[i]===6;
+  }
+  return()=>true;
+}
+const MNAME={n:'all articles',d:'delivered',s:'delivered to sender',r:'returned to sender',p:'pending',tb0:'delivered in under 3 days',tb1:'delivered in 3–6 days',tb2:'delivered in 7–14 days',tb3:'delivered in 15+ days',w:'delivered within standard TAT',b:'delivered beyond standard TAT',ns:'delivered, no standard TAT',pw:'pending, within standard so far',po:'pending, already overdue',pns:'pending, no standard TAT',ab0:'pending under 3 days',ab1:'pending 3–6 days',ab2:'pending 7–14 days',ab3:'pending 15+ days'};
+function mname(m){return m.startsWith('ev')?'last event “'+D.dict.ev[+m.slice(2)]+'”':MNAME[m]||m}
+
+/* =====================================================================
+   LEDGER TABLE (same column blocks as the Excel summaries)
+   ===================================================================== */
+const COLSETS={
+  full:[
+    {g:'Outcome',c:'out',cols:[['n','Grand total'],['d','Delivered (addressee)'],['s','Delivered to sender'],['r','Returned to sender'],['p','Pending'],['dp','Delivery %']]},
+    {g:'TAT, booking to delivery (days)',c:'tat',cols:[['avg','Avg'],['tm','Max'],['tb0','<3'],['tb1','<7'],['tb2','<15'],['tb3','>15']]},
+    {g:'Against standard TAT',c:'std',cols:[['w','Within'],['b','Beyond'],['ns','No standard'],['wp','% within'],['pw','Pending within'],['po','Pending overdue']]},
+    {g:'Aging of pending (days)',c:'age',cols:[['ab0','<3'],['ab1','<7'],['ab2','<15'],['ab3','>15'],['old','Oldest']]}
+  ],
+  pending:[
+    {g:'Pending',c:'out',cols:[['p','Pending articles']]},
+    {g:'EVENTS',c:'pend'},
+    {g:'Aging of pending (days)',c:'age',cols:[['ab0','<3'],['ab1','<7'],['ab2','<15'],['ab3','>15']]},
+    {g:'Against standard TAT',c:'std',cols:[['pw','Within so far'],['po','Overdue'],['pns','No standard']]},
+    {g:'',c:'age',cols:[['old','Oldest pending (days)']]}
+  ],
+  std:[
+    {g:'Outcome',c:'out',cols:[['n','Grand total'],['d','Delivered'],['p','Pending']]},
+    {g:'Delivered against standard TAT',c:'std',cols:[['w','Within'],['b','Beyond'],['ns','No standard'],['wp','% within'],['avg','Avg TAT']]},
+    {g:'Pending against standard TAT',c:'age',cols:[['pw','Within so far'],['po','Overdue'],['pns','No standard']]}
+  ]
+};
+const CLICK=new Set(['n','d','s','r','p','tb0','tb1','tb2','tb3','w','b','ns','pw','po','pns','ab0','ab1','ab2','ab3']);
+function val(s,k){
+  if(k.startsWith('ev'))return s.ev?s.ev[+k.slice(2)]:0;
+  switch(k){case'avg':return s.tn?s.ts/s.tn:NaN;case'dp':return pct(s.d,s.n);case'wp':return pct(s.w,s.w+s.b);default:return s[k]}
+}
+function cellFmt(k,v){if(k==='avg')return isNaN(v)?'':v.toFixed(1);if(k==='dp'||k==='wp')return fpct(v);return v?fmt(v):'0'}
+
+/* events present among the rows; pendingOnly drops the three closing events */
+function eventCols(rows,pendingOnly){
+  const cnt=new Int32Array(D.dict.ev.length);
+  for(const i of rows){if(!pendingOnly||D.S[i]===3)cnt[D.C.ev[i]]++}
+  const out=[];cnt.forEach((c,k)=>{if(c>0)out.push(['ev'+k,D.dict.ev[k]])});
+  out.sort((a,b)=>a[1].localeCompare(b[1]));return out;
+}
+function columnsFor(set,rows){
+  if(set==='events'){
+    return [{g:'Articles by last event',c:'out',cols:[['n','Grand total']].concat(eventCols(rows,false))}];
+  }
+  return COLSETS[set].map(g=>g.g==='EVENTS'?{g:'Pending, split by last event',c:'pend',cols:eventCols(rows,true)}:g).filter(g=>g.cols.length);
+}
+
+/**
+ * spec: { el, rows, levels:[{name, f(i)->code, label(code)->text, link?(code)}], cols:'full'|'pending'|'std'|'events',
+ *         filter?(i) row filter applied before grouping, extra?:{name, f(code)->text}, search?, limit?, id }
+ */
+function ledger(spec){
+  const id=spec.id; const st=ui[id]=ui[id]||{sort:spec.sort||(spec.levels.length>1?'name':'n'),dir:spec.dir||(spec.levels.length>1?1:-1),q:'',all:false};
+  let rows=spec.rows; if(spec.filter)rows=rows.filter(spec.filter);
+  const groups=columnsFor(spec.cols,rows);
+  const L=spec.levels;
+  const k1=L[0].f, k2=L[1]?L[1].f:null;
+  const m1=aggregate(rows,k1);
+  let m2=null; if(k2){m2=aggregate(rows,i=>k1(i)*1e6+k2(i))}
+  const tot=total(rows);
+  const q=st.q.toLowerCase();
+  const sortVal=(code,s,lv)=>st.sort==='name'?L[lv].label(code).toLowerCase():val(s,st.sort);
+  const cmp=(a,b)=>{const x=a.v,y=b.v;if(typeof x==='string')return st.dir*x.localeCompare(y);const xx=isNaN(x)?-Infinity:x,yy=isNaN(y)?-Infinity:y;return st.dir*(xx-yy)};
+  let top=[...m1].map(([c,s])=>({c,s,v:sortVal(c,s,0)})).sort(cmp);
+  const children=new Map();
+  if(m2){for(const [key,s] of m2){const c1=Math.floor(key/1e6),c2=key-c1*1e6;if(!children.has(c1))children.set(c1,[]);children.get(c1).push({c:c2,s,v:sortVal(c2,s,1)})}
+    children.forEach(a=>a.sort(cmp))}
+  // search on any level label
+  if(q){
+    if(!m2) top=top.filter(r=>L[0].label(r.c).toLowerCase().includes(q)||(spec.extra&&spec.extra.f(r.c).toLowerCase().includes(q)));
+    else top=top.filter(r=>{if(L[0].label(r.c).toLowerCase().includes(q))return true;const ch=children.get(r.c).filter(x=>L[1].label(x.c).toLowerCase().includes(q));if(ch.length){children.set(r.c,ch);return true}return false});
+  }
+  const limit=spec.limit||400;
+  let html='<table class="lg"><thead><tr class="gr">';
+  const nLead=(m2?1:1)+(spec.extra?1:0);
+  html+='<th class="h-lead lead" colspan="1"></th>'+(spec.extra?'<th class="h-lead"></th>':'');
+  groups.forEach((g,gi)=>{html+='<th class="h-'+g.c+(gi?' gs':'')+'" colspan="'+g.cols.length+'">'+esc(g.g)+'</th>'});
+  html+='</tr><tr class="hd">';
+  const srt=(k)=>st.sort===k?' aria-sort="'+(st.dir>0?'ascending':'descending')+'"':'';
+  html+='<th class="h-lead lead" data-s="name"'+srt('name')+'>'+esc(L.map(l=>l.name).join(' / '))+'</th>';
+  if(spec.extra)html+='<th class="h-lead">'+esc(spec.extra.name)+'</th>';
+  groups.forEach((g,gi)=>g.cols.forEach(([k,lab],ci)=>{html+='<th class="h-'+g.c+(gi&&!ci?' gs':'')+'" data-s="'+k+'"'+srt(k)+'>'+esc(lab)+'</th>'}));
+  html+='</tr></thead><tbody>';
+  const rowHtml=(s,cls,lead,attrs)=>{
+    let h='<tr class="'+cls+'">'+lead;
+    groups.forEach((g,gi)=>g.cols.forEach(([k],ci)=>{
+      const v=val(s,k); let c='c-'+g.c+(gi&&!ci?' gs':'');
+      if(CLICK.has(k)||k.startsWith('ev')){if(v)c+=' k';else c+=' z'}
+      if((k==='b'||k==='po')&&v>0)c+=' bad';
+      if(k==='wp'&&!isNaN(v))c+=v>=90?' good':v<70?' bad':'';
+      h+='<td class="'+c+'" data-m="'+k+'"'+attrs+'>'+cellFmt(k,v)+'</td>'}));
+    return h+'</tr>'};
+  let shown=0;
+  for(const r of top){
+    if(!st.all&&shown>=limit)break;
+    const lab=L[0].label(r.c);
+    const labH=L[0].link?'<span class="lk" data-link="'+r.c+'">'+esc(lab)+'</span>':esc(lab);
+    const ex=spec.extra?'<td class="lead2">'+esc(spec.extra.f(r.c))+'</td>':'';
+    html+=rowHtml(r.s,m2?'sub':'','<td class="lead" title="'+esc(lab)+'">'+labH+'</td>'+ex,' data-a="'+r.c+'"');
+    shown++;
+    if(m2){for(const x of children.get(r.c)){
+      const l2=L[1].label(x.c);
+      const l2H=L[1].link?'<span class="lk" data-link2="'+x.c+'">'+esc(l2)+'</span>':esc(l2);
+      html+=rowHtml(x.s,'l2','<td class="lead" title="'+esc(l2)+'">'+l2H+'</td>',' data-a="'+r.c+'" data-b="'+x.c+'"')}}
+  }
+  html+=rowHtml(tot,'tot','<td class="lead">Grand total</td>'+(spec.extra?'<td></td>':''),'');
+  html+='</tbody></table>';
+  if(!st.all&&top.length>limit)html+='<div class="more">Showing '+limit+' of '+fmt(top.length)+' rows. <button class="btn" data-all="1">Show all</button></div>';
+  if(!rows.length)html='<div class="more">No articles match the current filters.</div>';
+  const el=spec.el; el.innerHTML=html;
+  el.onclick=(e)=>{
+    const th=e.target.closest('th[data-s]');
+    if(th){const k=th.dataset.s;if(st.sort===k)st.dir=-st.dir;else{st.sort=k;st.dir=k==='name'?1:-1}ledger(spec);return}
+    if(e.target.closest('[data-all]')){st.all=true;ledger(spec);return}
+    const ln=e.target.closest('[data-link]');if(ln){L[0].link(+ln.dataset.link);return}
+    const ln2=e.target.closest('[data-link2]');if(ln2){L[1].link(+ln2.dataset.link2);return}
+    const td=e.target.closest('td.k');if(!td)return;
+    const m=td.dataset.m, pred=metricPred(m);
+    const a=td.dataset.a!==undefined?+td.dataset.a:null, b=td.dataset.b!==undefined?+td.dataset.b:null;
+    const sel=rows.filter(i=>(a===null||k1(i)===a)&&(b===null||k2(i)===b)&&pred(i));
+    let title=mname(m); title=title.charAt(0).toUpperCase()+title.slice(1);
+    const where=[a!==null?L[0].label(a):null,b!==null?L[1].label(b):null].filter(Boolean).join(' › ');
+    openList(title+(where?' — '+where:''),sel);
+  };
+  if(spec.searchEl){spec.searchEl.value=st.q;spec.searchEl.oninput=()=>{st.q=spec.searchEl.value;st.all=false;clearTimeout(st.t);st.t=setTimeout(()=>ledger(spec),250)}}
+}
+
+/* =====================================================================
+   ARTICLE LIST (modal) + CSV
+   ===================================================================== */
+const LISTCOLS=[
+  ['Article number',i=>D.C.art[i]],
+  ['Customer',i=>D.custLabel[D.C.cust[i]]],
+  ['Booking office',i=>D.dict.boff[D.C.boff[i]]],
+  ['Booking date',i=>dstr(D.C.bday[i])],
+  ['Article type',i=>D.dict.atype[D.C.atype[i]]],
+  ['Destination office',i=>D.dict.off[D.C.off[i]]],
+  ['Pin',i=>D.C.dpin[i]>0?D.C.dpin[i]:''],
+  ['Division',i=>D.dict.div[D.C.div[i]]],
+  ['Circle',i=>D.dict.cir[D.C.cir[i]]],
+  ['Status',i=>D.dict.st[D.C.st[i]]],
+  ['Last event',i=>D.dict.ev[D.C.ev[i]]],
+  ['Event office',i=>D.dict.evoff[D.C.evoff[i]]],
+  ['Event time (IST)',i=>evstr(D.C.evmin[i])],
+  ['TAT days',i=>D.TAT[i]>=0?D.TAT[i]:'',1],
+  ['Std TAT',i=>D.C.std[i]>=0?D.C.std[i]:'',1],
+  ['Holiday days excluded',i=>D.HA[i]?D.HA[i]:'',1],
+  ['Against standard',i=>['','Within','Beyond','No standard','Within so far','Overdue','No standard'][D.STD[i]]],
+  ['Aging days',i=>D.AG[i]>=0?D.AG[i]:'',1]
+];
+let LIST={rows:[],title:'',shown:0,view:[]};
+function openList(title,rows){
+  LIST={rows:Array.from(rows),title,shown:0,view:null};
+  // latest bookings last-scanned first: sort by booking date then article
+  LIST.rows.sort((a,b)=>D.C.bday[a]-D.C.bday[b]||(D.C.art[a]<D.C.art[b]?-1:1));
+  $('mdTitle').textContent=title; $('mdSearch').value='';
+  LIST.view=LIST.rows; drawList(true);
+  $('ov').hidden=false; $('mdClose').focus();
+}
+function drawList(reset){
+  const v=LIST.view; if(reset)LIST.shown=0;
+  const end=Math.min(v.length,LIST.shown+300);
+  $('mdN').textContent=fmt(v.length)+' articles';
+  let h='';
+  if(reset){h='<table class="lg"><thead><tr class="gr" hidden></tr><tr class="hd">'+LISTCOLS.map(c=>'<th style="top:0" class="h-lead">'+esc(c[0])+'</th>').join('')+'</tr></thead><tbody id="mdRows"></tbody></table><div class="more" id="mdMore"></div>';$('mdBody').innerHTML=h;$('mdBody').scrollTop=0}
+  let rh='';
+  for(let x=LIST.shown;x<end;x++){const i=v[x];rh+='<tr>'+LISTCOLS.map(c=>{const t=c[1](i);const bad=(t==='Beyond'||t==='Overdue');return'<td class="'+(c[2]?'r':'')+(bad?' bad':'')+'">'+esc(t)+'</td>'}).join('')+'</tr>'}
+  $('mdRows').insertAdjacentHTML('beforeend',rh);
+  LIST.shown=end;
+  $('mdMore').innerHTML=end<v.length?'Showing '+fmt(end)+' of '+fmt(v.length)+'. <button class="btn" id="mdNext">Show 300 more</button> The CSV always has every row.':(v.length?'':'No articles.');
+  const nb=$('mdNext');if(nb)nb.onclick=()=>drawList(false);
+}
+$('mdSearch').addEventListener('input',()=>{const q=$('mdSearch').value.trim().toLowerCase();
+  LIST.view=q?LIST.rows.filter(i=>LISTCOLS.some(c=>String(c[1](i)).toLowerCase().includes(q))):LIST.rows;drawList(true)});
+function closeList(){$('ov').hidden=true}
+$('mdClose').onclick=closeList;
+$('ov').addEventListener('click',e=>{if(e.target===$('ov'))closeList()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('ov').hidden)closeList()});
+$('mdCsv').onclick=()=>downloadCSV(LIST.title,LISTCOLS.map(c=>c[0]),LIST.view.map(i=>LISTCOLS.map(c=>c[1](i))));
+function downloadCSV(name,head,rows){
+  const q=v=>{const s=String(v==null?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+  const csv='\ufeff'+[head].concat(rows).map(r=>r.map(q).join(',')).join('\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=name.replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'_').slice(0,80)+'.csv';document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+}
+/* CSV of a ledger table as shown */
+function tableCSV(el,name){const t=el.querySelector('table');if(!t)return;
+  const rows=[...t.querySelectorAll('tr.hd, tbody tr')].map(tr=>[...tr.children].map(c=>c.textContent));downloadCSV(name,rows[0],rows.slice(1))}
+
+/* =====================================================================
+   CHARTS
+   ===================================================================== */
+const charts={};
+const CLR={del:'#1d7a46',dts:'#c48a1a',rts:'#7a4fa3',pend:'#b3132b',within:'#1d7a46',beyond:'#b3132b',nostd:'#a9b4c2',navy:'#17325c'};
+const PAL=['#17325c','#1f7a8c','#c48a1a','#7a4fa3','#b3132b','#4f7d2b','#8a5a44','#3d6fb6'];
+function chart(id,cfg){
+  if(!window.Chart){const el=$(id);if(el)el.parentElement.innerHTML='<div class="more">Charts need internet access to load.</div>';return}
+  Chart.defaults.font.family="'IBM Plex Sans',system-ui,'Segoe UI',Arial,sans-serif";
+  if(charts[id])charts[id].destroy();
+  const el=$(id);if(!el)return;
+  cfg.options=Object.assign({responsive:true,maintainAspectRatio:false,animation:false,
+    plugins:{legend:{position:'bottom',labels:{boxWidth:12}},tooltip:{mode:'index',intersect:false}}},cfg.options||{});
+  charts[id]=new Chart(el,cfg);
+}
+
+/* =====================================================================
+   TABS
+   ===================================================================== */
+const TABS=[
+  ['overview','Overview'],['booking','Booking office'],['region','AP region / division'],['dest','AP destination offices'],
+  ['std','Standard TAT'],['pending','Pending'],['atype','Article type'],['cust','Customers'],['circle','Circles'],['search','Article search']
+];
+let curTab='overview';
+function buildTabs(){
+  $('tabs').innerHTML=TABS.map(([k,l])=>'<button class="tab" role="tab" id="t-'+k+'" aria-controls="p-'+k+'" aria-selected="'+(k===curTab)+'" data-t="'+k+'">'+l+'</button>').join('');
+  $('tabs').onclick=e=>{const b=e.target.closest('.tab');if(b)showTab(b.dataset.t)};
+}
+function showTab(k){curTab=k;document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===k));renderTab(false)}
+function renderTab(){
+  TABS.forEach(([k])=>$('p-'+k).hidden=(k!==curTab));
+  ({overview:tOverview,booking:tBooking,region:tRegion,dest:tDest,std:tStd,pending:tPending,atype:tAtype,cust:tCust,circle:tCircle,search:tSearch})[curTab]();
+}
+function apNote(){return F.scope==='out'?'<div class="note">The Destination filter is set to “Outside Andhra Pradesh”, so this Andhra Pradesh view is empty. Change it to see AP destinations.</div>':''}
+
+/* level helpers */
+const LV={
+  reg:{name:'Region',f:i=>D.C.reg[i],label:c=>D.dict.reg[c]},
+  div:{name:'Division',f:i=>D.C.div[i],label:c=>D.dict.div[c]},
+  off:{name:'Destination office',f:i=>D.C.off[i],label:c=>D.dict.off[c]},
+  cir:{name:'Circle',f:i=>D.C.cir[i],label:c=>D.dict.cir[c]},
+  boff:{name:'Booking office',f:i=>D.C.boff[i],label:c=>D.dict.boff[c]},
+  bdiv:{name:'Booking division',f:i=>D.C.bdiv[i],label:c=>D.dict.bdiv[c]},
+  atype:{name:'Article type',f:i=>D.C.atype[i],label:c=>D.dict.atype[c]},
+  cust:{name:'Customer',f:i=>D.C.cust[i],label:c=>D.custLabel[c]},
+  evoff:{name:'Event office (last scan)',f:i=>D.C.evoff[i],label:c=>D.dict.evoff[c]},
+  bday:{name:'Booking date',f:i=>D.C.bday[i]<0?0:D.C.bday[i],label:c=>c?dstr(c):'(no date)'},
+  std:{name:'Standard TAT',f:i=>D.C.std[i]<0?99:D.C.std[i],label:c=>c===99?'No standard':c+(c===1?' day':' days')},
+  chan:{name:'Booking channel',f:i=>D.C.chan[i],label:c=>D.dict.chan[c]}
+};
+function secHead(title,desc,tools){return'<div class="sec-h"><h2>'+esc(title)+'</h2>'+(desc?'<p>'+desc+'</p>':'')+'<div class="tools">'+(tools||'')+'</div></div>'}
+
+/* ---------- Overview ---------- */
+function kpiRow(s,extra){
+  const k=(v,l,sub,cls,list)=>'<div class="kpi '+(cls||'')+'"'+(list?' data-list="'+list+'" tabindex="0" role="button"':'')+'><div class="v">'+v+'</div><div class="l">'+l+'</div>'+(sub?'<div class="s">'+sub+'</div>':'')+'</div>';
+  return '<div class="kpis">'+
+    k(fmt(s.n),'Articles booked','',null,'n')+
+    k(fmt(s.d),'Delivered to addressee',fpct(pct(s.d,s.n))+' of booked','good','d')+
+    k(fmt(s.s),'Delivered to sender',fpct(pct(s.s,s.n))+' of booked','warn','s')+
+    k(fmt(s.r),'Returned to sender','',null,'r')+
+    k(fmt(s.p),'Pending',s.p?'oldest '+s.old+' days':'',s.p?'bad':'','p')+
+    k(s.tn?(s.ts/s.tn).toFixed(1):'–','Average TAT (days)','booking to delivery')+
+    k(fpct(pct(s.w,s.w+s.b)),'Within standard TAT',fmt(s.w)+' within · '+fmt(s.b)+' beyond',pct(s.w,s.w+s.b)>=90?'good':'bad','b')+
+    k(fmt(s.po),'Pending past standard','already overdue',s.po?'bad':'','po')+(extra||'')+
+  '</div>';
+}
+function bindKpis(el,rows){el.querySelectorAll('.kpi[data-list]').forEach(k=>{const go=()=>{const m=k.dataset.list,p=metricPred(m);openList(mname(m).replace(/^./,c=>c.toUpperCase()),rows.filter(p))};k.onclick=go;k.onkeydown=e=>{if(e.key==='Enter')go()}})}
+function tOverview(){
+  const el=$('p-overview'), rows=IDX, s=total(rows);
+  el.innerHTML=kpiRow(s)+
+    '<div class="charts">'+
+    '<div class="chart"><h3>Articles booked per day, by current status</h3><div class="cv"><canvas id="cDaily"></canvas></div></div>'+
+    '<div class="chart"><h3>Delivery time in days (delivered to addressee)</h3><div class="cv"><canvas id="cTat"></canvas></div></div>'+
+    '<div class="chart"><h3>Standard TAT result, 10 largest booking offices</h3><div class="cv"><canvas id="cStdB"></canvas></div></div>'+
+    '<div class="chart"><h3>Pending articles by last event</h3><div class="cv"><canvas id="cPend"></canvas></div></div>'+
+    '</div>'+
+    '<div class="sec" style="margin-top:28px">'+secHead('Booked articles by destination circle','Share of the '+fmt(s.n)+' booked articles addressed to each circle.','<button class="btn" id="shCirCsv">Download CSV</button>')+
+      '<div class="split"><div class="chart"><h3>Share of booked articles by circle</h3><div class="cv" style="height:340px"><canvas id="cCirShare"></canvas></div></div><div class="tw" id="shCir"></div></div></div>'+
+    '<div class="sec">'+secHead('Andhra Pradesh destinations by division','<span id="apShareTxt"></span>','<button class="btn" id="shDivCsv">Download CSV</button>')+
+      '<div class="split"><div class="chart"><h3>Share of AP-addressed articles by division</h3><div class="cv" id="cDivWrap"><canvas id="cDivShare"></canvas></div></div><div class="tw" id="shDiv"></div></div></div>';
+  bindKpis(el,rows);
+  shareBlocks(rows,s);
+  // daily stacked
+  const days=new Map();
+  for(const i of rows){const d=D.C.bday[i];if(d<0)continue;let a=days.get(d);if(!a){a=[0,0,0,0];days.set(d,a)}a[D.S[i]]++}
+  const dk=[...days.keys()].sort((a,b)=>a-b);
+  chart('cDaily',{type:'bar',data:{labels:dk.map(d=>dstr(d).slice(0,6)),datasets:[
+    {label:'Delivered',data:dk.map(d=>days.get(d)[0]),backgroundColor:CLR.del},
+    {label:'Delivered to sender',data:dk.map(d=>days.get(d)[1]),backgroundColor:CLR.dts},
+    {label:'Returned',data:dk.map(d=>days.get(d)[2]),backgroundColor:CLR.rts},
+    {label:'Pending',data:dk.map(d=>days.get(d)[3]),backgroundColor:CLR.pend}]},
+    options:{scales:{x:{stacked:true},y:{stacked:true}}}});
+  // TAT histogram 0..15+
+  const h=new Array(17).fill(0);for(const i of rows){if(D.S[i]===0&&D.TAT[i]>=0)h[Math.min(16,D.TAT[i])]++}
+  chart('cTat',{type:'bar',data:{labels:h.map((_,k)=>k===16?'16+':String(k)),datasets:[{label:'Articles',data:h,backgroundColor:h.map((_,k)=>k<3?CLR.del:k<7?'#6aa57f':k<15?CLR.dts:CLR.pend)}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'Days from booking to delivery'}}}}});
+  const bo=aggregate(rows,LV.boff.f); const bk=topOffices(rows,10);
+  chart('cStdB',{type:'bar',data:{labels:bk.map(c=>D.dict.boff[c]),datasets:[
+    {label:'Within standard',data:bk.map(c=>bo.get(c).w),backgroundColor:CLR.within},
+    {label:'Beyond standard',data:bk.map(c=>bo.get(c).b),backgroundColor:CLR.beyond},
+    {label:'No standard',data:bk.map(c=>bo.get(c).ns),backgroundColor:CLR.nostd}]},
+    options:{indexAxis:'y',scales:{x:{stacked:true},y:{stacked:true}}}});
+  const pe=new Map();for(const i of rows)if(D.S[i]===3)pe.set(D.C.ev[i],(pe.get(D.C.ev[i])||0)+1);
+  const pk=[...pe.entries()].sort((a,b)=>b[1]-a[1]);
+  chart('cPend',{type:'bar',data:{labels:pk.map(x=>D.dict.ev[x[0]]),datasets:[{label:'Pending',data:pk.map(x=>x[1]),backgroundColor:CLR.pend}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false}}}});
+}
+
+/* largest booking offices in the current rows (for charts) */
+function topOffices(rows,n){const m=new Map();for(const i of rows)m.set(D.C.boff[i],(m.get(D.C.boff[i])||0)+1);
+  return [...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n).map(x=>x[0])}
+
+/* ---------- Overview: share of booked articles by circle and AP division ---------- */
+const REG_CLR=['#17325c','#1f7a8c','#c48a1a','#7a4fa3','#4f7d2b','#b3132b'];
+const pctLabels={id:'pctLabels',afterDatasetsDraw(ch,args,opt){
+  const {ctx}=ch; ctx.save(); ctx.font='600 11px '+Chart.defaults.font.family; ctx.fillStyle='#1b2735'; ctx.textBaseline='middle';
+  ch.data.datasets.forEach((ds,di)=>{const m=ch.getDatasetMeta(di); if(m.hidden)return;
+    m.data.forEach((bar,k)=>{const v=ds.data[k]; if(v==null)return; ctx.fillText(v.toFixed(1)+'%',bar.x+4,bar.y)})});
+  ctx.restore()}};
+function shareTable(el,entries,opt){
+  // entries: [{c,label,region?,s}] ; opt: {total, apTotal?, keyFn, name}
+  const cols=[['n','Articles'],['sh','% of booked']].concat(opt.apTotal!=null?[['sha','% of AP-addressed']]:[]);
+  let h='<table class="lg"><thead><tr class="gr"><th class="h-lead lead"></th>'+(opt.region?'<th class="h-lead"></th>':'')+
+    '<th class="h-out gs" colspan="'+(cols.length+1)+'">Share of booked articles</th><th class="h-tat gs" colspan="3">Delivery</th><th class="h-age gs" colspan="2">Pending</th></tr>'+
+    '<tr class="hd"><th class="h-lead lead">'+esc(opt.name)+'</th>'+(opt.region?'<th class="h-lead">Region</th>':'')+
+    cols.map((c,k)=>'<th class="h-out'+(k?'':' gs')+'">'+c[1]+'</th>').join('')+'<th class="h-out">Share</th>'+
+    '<th class="h-tat gs">Delivered %</th><th class="h-tat">Avg TAT</th><th class="h-tat">Within std %</th><th class="h-age gs">Pending</th><th class="h-age">Overdue</th></tr></thead><tbody>';
+  const max=Math.max(...entries.map(e=>e.s.n),1);
+  const row=(e,cls)=>{const s=e.s, sh=pct(s.n,opt.total), sha=opt.apTotal!=null?pct(s.n,opt.apTotal):null, wp=pct(s.w,s.w+s.b);
+    const a=e.c==null?'':' data-c="'+e.c+'"';
+    return '<tr class="'+(cls||'')+'"><td class="lead" title="'+esc(e.label)+'">'+esc(e.label)+'</td>'+(opt.region?'<td class="lead2">'+esc(e.region||'')+'</td>':'')+
+      '<td class="c-out gs'+(s.n?' k':'')+'" data-m="n"'+a+'>'+fmt(s.n)+'</td><td class="c-out"><b>'+fshare(sh)+'</b></td>'+
+      (sha!=null?'<td class="c-out">'+fshare(sha)+'</td>':'')+
+      '<td class="c-out bar">'+(e.c==null?'':'<span class="sb" style="width:'+Math.max(1,Math.round(s.n/max*110))+'px"></span>')+'</td>'+
+      '<td class="c-tat gs">'+fpct(pct(s.d,s.n))+'</td><td class="c-tat">'+(s.tn?(s.ts/s.tn).toFixed(1):'')+'</td>'+
+      '<td class="c-tat'+(isNaN(wp)?'':wp>=90?' good':wp<70?' bad':'')+'">'+fpct(wp)+'</td>'+
+      '<td class="c-age gs'+(s.p?' k':' z')+'" data-m="p"'+a+'>'+fmt(s.p)+'</td><td class="c-age'+(s.po?' k bad':' z')+'" data-m="po"'+a+'>'+fmt(s.po)+'</td></tr>'};
+  entries.forEach(e=>h+=row(e));
+  h+=row({c:null,label:'Total',region:'',s:opt.sum},'tot')+'</tbody></table>';
+  el.innerHTML=h;
+  el.onclick=e=>{const td=e.target.closest('td.k[data-c]');if(!td)return;const c=+td.dataset.c,m=td.dataset.m,p=metricPred(m);
+    const lab=entries.find(x=>x.c===c).label;
+    openList(mname(m).replace(/^./,x=>x.toUpperCase())+' — '+lab,opt.rows.filter(i=>opt.keyFn(i)===c&&p(i)))};
+}
+function shareBlocks(rows,s){
+  // circles
+  const cm=aggregate(rows,LV.cir.f);
+  const ce=[...cm].map(([c,st])=>({c,label:D.dict.cir[c],s:st})).sort((a,b)=>b.s.n-a.s.n);
+  shareTable($('shCir'),ce,{name:'Destination circle',total:s.n,sum:s,rows,keyFn:LV.cir.f});
+  $('shCirCsv').onclick=()=>tableCSV($('shCir'),'Booked articles by destination circle');
+  const top=ce.slice(0,8), rest=ce.slice(8).reduce((a,e)=>a+e.s.n,0);
+  const lab=top.map(e=>e.label).concat(rest?['Other circles']:[]), dat=top.map(e=>e.s.n).concat(rest?[rest]:[]);
+  const cc=['#17325c','#1f7a8c','#c48a1a','#7a4fa3','#4f7d2b','#b3132b','#8a5a44','#3d6fb6','#a9b4c2'];
+  chart('cCirShare',{type:'doughnut',data:{labels:lab.map((l,k)=>l+' — '+fshare(pct(dat[k],s.n))),datasets:[{data:dat,backgroundColor:lab.map((l,k)=>l==='Other circles'?'#a9b4c2':cc[k%8]),borderColor:'#fff',borderWidth:2}]},
+    options:{cutout:'55%',plugins:{legend:{position:'right'},tooltip:{mode:'nearest',callbacks:{label:c=>' '+fmt(c.raw)+' articles ('+fpct(pct(c.raw,s.n))+')'}}}}});
+  // AP divisions
+  const ap=rows.filter(i=>D.C.cir[i]===D.apCode); const apN=ap.length;
+  $('apShareTxt').textContent=fmt(apN)+' of '+fmt(s.n)+' booked articles ('+fpct(pct(apN,s.n))+') are addressed within Andhra Pradesh.';
+  const dm=aggregate(ap,LV.div.f), divReg=new Map(); for(const i of ap)divReg.set(D.C.div[i],D.C.reg[i]);
+  const de=[...dm].map(([c,st])=>({c,label:D.dict.div[c],region:D.dict.reg[divReg.get(c)],s:st})).sort((a,b)=>b.s.n-a.s.n);
+  shareTable($('shDiv'),de,{name:'Division',region:true,total:s.n,apTotal:apN,sum:total(ap),rows:ap,keyFn:LV.div.f});
+  $('shDivCsv').onclick=()=>tableCSV($('shDiv'),'AP division share of booked articles');
+  const regs=[...new Set(de.map(e=>e.region))].sort();
+  $('cDivWrap').style.height=Math.max(260,de.length*22+60)+'px';
+  chart('cDivShare',{type:'bar',data:{labels:de.map(e=>e.label),datasets:regs.map((r,k)=>({label:r+' region',data:de.map(e=>e.region===r?+pct(e.s.n,apN).toFixed(1):null),backgroundColor:REG_CLR[k%REG_CLR.length],barThickness:14}))},
+    options:{indexAxis:'y',layout:{padding:{right:44}},scales:{x:{stacked:true,ticks:{callback:v=>v+'%'}},y:{stacked:true,ticks:{autoSkip:false}}},
+      plugins:{tooltip:{mode:'nearest',intersect:true,callbacks:{label:c=>{const e=de[c.dataIndex];return ' '+fmt(e.s.n)+' articles · '+fpct(pct(e.s.n,apN))+' of AP-addressed · '+fpct(pct(e.s.n,s.n))+' of all booked'}}}}},
+    plugins:[pctLabels]});
+}
+
+/* ---------- Booking office ---------- */
+const BREAK={cir:'Destination circle',div:'Destination division (AP)',bday:'Booking date',atype:'Article type',cust:'Customer'};
+function tBooking(){
+  const el=$('p-booking'); const st=ui.bookBreak=ui.bookBreak||'cir';
+  el.innerHTML=
+    '<div class="sec">'+secHead('Booking office summary','Largest offices first. Offices shown only as a PIN are named from the PIN where possible.','<input class="search" id="bk1Q" placeholder="Find an office"><button class="btn" id="bk1Csv">Download CSV</button>')+'<div class="tw" id="bk1"></div></div>'+
+    '<div class="charts sec"><div class="chart"><h3>Articles booked per day, largest booking offices</h3><div class="cv"><canvas id="cBkDay"></canvas></div></div>'+
+    '<div class="chart"><h3>Delivery % and within-standard %, 12 largest booking offices</h3><div class="cv"><canvas id="cBkPct"></canvas></div></div></div>'+
+    '<div class="sec">'+secHead('Booking office break-down','Each booking office split by the item you choose.',
+      '<select class="sel" id="bkBreak" aria-label="Break down by">'+Object.entries(BREAK).map(([k,l])=>'<option value="'+k+'"'+(k===st?' selected':'')+'>By '+l.toLowerCase()+'</option>').join('')+'</select>'+
+      '<input class="search" id="bk2Q" placeholder="Find a row"><button class="btn" id="bk2Csv">Download CSV</button>')+'<div class="tw" id="bk2"></div></div>';
+  ledger({id:'bk1',el:$('bk1'),rows:IDX,levels:[LV.boff],cols:'full',sort:'n',dir:-1,limit:100,searchEl:$('bk1Q')});
+  const lv2=st==='bday'?LV.bday:LV[st];
+  const filt=st==='div'?(i=>D.C.cir[i]===D.apCode):null;
+  ledger({id:'bk2-'+st,el:$('bk2'),rows:IDX,filter:filt,levels:[LV.boff,lv2],cols:'full',searchEl:$('bk2Q'),limit:15,
+    sort:st==='bday'?'name':'n',dir:st==='bday'?1:-1});
+  $('bkBreak').onchange=e=>{ui.bookBreak=e.target.value;tBooking()};
+  $('bk1Csv').onclick=()=>tableCSV($('bk1'),'Booking office summary');
+  $('bk2Csv').onclick=()=>tableCSV($('bk2'),'Booking office by '+BREAK[st]);
+  // charts
+  const offs=new Map(), days=new Set();
+  for(const i of IDX){const b=D.C.boff[i],d=D.C.bday[i];if(d<0)continue;days.add(d);let m=offs.get(b);if(!m){m=new Map();offs.set(b,m)}m.set(d,(m.get(d)||0)+1)}
+  const dk=[...days].sort((a,b)=>a-b);
+  const top6=topOffices(IDX,6), others=[...offs.keys()].filter(o=>!top6.includes(o));
+  const lineSets=top6.map((o,n)=>({label:D.dict.boff[o],data:dk.map(d=>(offs.get(o)&&offs.get(o).get(d))||0),borderColor:PAL[n%PAL.length],backgroundColor:PAL[n%PAL.length],tension:.2,pointRadius:2}));
+  if(others.length)lineSets.push({label:'All other '+fmt(others.length)+' offices',data:dk.map(d=>others.reduce((a,o)=>a+(offs.get(o).get(d)||0),0)),borderColor:'#a9b4c2',backgroundColor:'#a9b4c2',borderDash:[5,4],tension:.2,pointRadius:2});
+  chart('cBkDay',{type:'line',data:{labels:dk.map(d=>dstr(d).slice(0,6)),datasets:lineSets}});
+  const ag=aggregate(IDX,LV.boff.f);
+  const ok=topOffices(IDX,12);
+  chart('cBkPct',{type:'bar',data:{labels:ok.map(o=>D.dict.boff[o]),datasets:[
+    {label:'Delivered to addressee %',data:ok.map(o=>+pct(ag.get(o).d,ag.get(o).n).toFixed(1)),backgroundColor:CLR.navy},
+    {label:'Within standard %',data:ok.map(o=>{const s=ag.get(o);return +(pct(s.w,s.w+s.b)||0).toFixed(1)}),backgroundColor:CLR.within}]},
+    options:{scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%'}},x:{ticks:{autoSkip:false,maxRotation:40,minRotation:0}}}}});
+}
+
+/* ---------- AP region / division ---------- */
+function tRegion(){
+  const el=$('p-region'); const mode=ui.regMode=ui.regMode||'full';
+  const rows=apRows();
+  el.innerHTML=apNote()+'<div class="sec">'+secHead('Andhra Pradesh — region and division','Destination region and division. Click a division name to see its offices.',
+    '<div class="seg" role="group" aria-label="View"><button data-m="full" aria-pressed="'+(mode==='full')+'">Summary</button><button data-m="events" aria-pressed="'+(mode==='events')+'">By last event</button></div>'+
+    '<button class="btn" id="rgCsv">Download CSV</button>')+'<div class="tw" id="rg"></div></div>';
+  const div=Object.assign({},LV.div,{link:c=>{ui.destDiv=c;showTab('dest')}});
+  ledger({id:'rg-'+mode,el:$('rg'),rows,levels:[LV.reg,div],cols:mode});
+  el.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{ui.regMode=b.dataset.m;tRegion()});
+  $('rgCsv').onclick=()=>tableCSV($('rg'),'AP region division '+(mode==='events'?'by event':'summary'));
+}
+
+/* ---------- AP destination offices ---------- */
+function tDest(){
+  const el=$('p-dest'); const all=apRows();
+  const divs=[...new Set(all.map(i=>D.C.div[i]))].sort((a,b)=>D.dict.div[a].localeCompare(D.dict.div[b]));
+  const sel=ui.destDiv!=null&&divs.includes(ui.destDiv)?ui.destDiv:-1;
+  const rows=sel<0?all:all.filter(i=>D.C.div[i]===sel);
+  el.innerHTML=apNote()+'<div class="sec">'+secHead('Andhra Pradesh — destination offices','Grouped by division. Use the search box to find an office.',
+    '<select class="sel" id="dsDiv" aria-label="Division"><option value="-1">All divisions</option>'+divs.map(c=>'<option value="'+c+'"'+(c===sel?' selected':'')+'>'+esc(D.dict.div[c])+'</option>').join('')+'</select>'+
+    '<input class="search" id="dsQ" placeholder="Find an office"><button class="btn" id="dsCsv">Download CSV</button>')+'<div class="tw" id="ds"></div></div>'+
+    '<div class="sec">'+secHead('Destination offices ranked by pending articles','Offices holding the most undelivered articles come first.','<button class="btn" id="dpCsv">Download CSV</button>')+'<div class="tw" id="dp"></div></div>';
+  ledger({id:'ds',el:$('ds'),rows,levels:[LV.div,LV.off],cols:'full',searchEl:$('dsQ'),limit:60});
+  const offDiv=new Map();for(const i of rows)offDiv.set(D.C.off[i],D.C.div[i]);
+  ledger({id:'dp',el:$('dp'),rows,filter:i=>D.S[i]===3,levels:[LV.off],extra:{name:'Division',f:c=>D.dict.div[offDiv.get(c)]||''},cols:'pending',sort:'p',dir:-1,limit:150});
+  $('dsDiv').onchange=e=>{ui.destDiv=+e.target.value;tDest()};
+  $('dsCsv').onclick=()=>tableCSV($('ds'),'AP destination offices');
+  $('dpCsv').onclick=()=>tableCSV($('dp'),'AP destination offices by pending');
+}
+
+/* ---------- Standard TAT ---------- */
+function tStd(){
+  const el=$('p-std'); const rows=apRows(); const s=total(rows);
+  const measure=ui.mxMeasure=ui.mxMeasure||'wp';
+  const k=(v,l,sub,cls,m)=>'<div class="kpi '+(cls||'')+'" data-list="'+m+'" tabindex="0" role="button"><div class="v">'+v+'</div><div class="l">'+l+'</div>'+(sub?'<div class="s">'+sub+'</div>':'')+'</div>';
+  el.innerHTML=apNote()+'<div class="note">Standard TAT comes from the Division-to-Division TAT table: booking division × destination division. Delivered on the standard day counts as within. If the last day of the standard is a holiday, the deadline moves to the next working day. Articles to destinations outside Andhra Pradesh have no standard.</div>'+
+    '<div class="kpis">'+
+      k(fmt(s.d),'Delivered (AP destinations)','','', 'd')+
+      k(fmt(s.w),'Within standard',fpct(pct(s.w,s.w+s.b))+' of measurable','good','w')+
+      k(fmt(s.b),'Beyond standard','',s.b?'bad':'','b')+
+      k(fmt(s.ns),'Delivered, no standard','','','ns')+
+      k(fmt(s.pw),'Pending, within so far','','','pw')+
+      k(fmt(s.po),'Pending, already overdue','',s.po?'bad':'','po')+
+    '</div>'+
+    '<div class="sec">'+secHead('Booking division × destination division','Click a cell to list its articles.',
+      '<div class="seg" role="group" aria-label="Measure"><button data-x="wp" aria-pressed="'+(measure==='wp')+'">% within</button><button data-x="b" aria-pressed="'+(measure==='b')+'">Beyond standard</button><button data-x="avg" aria-pressed="'+(measure==='avg')+'">Avg TAT</button><button data-x="po" aria-pressed="'+(measure==='po')+'">Pending overdue</button></div>')+
+      '<div class="tw" id="mx"></div></div>'+
+    '<div class="sec">'+secHead('Holidays on the last day of standard TAT','Articles whose deadline fell on a holiday. Their TAT does not count that day.','<button class="btn" id="hoCsv">Download CSV</button>')+'<div class="tw" id="ho"></div></div>'+
+    '<div class="sec">'+secHead('By standard TAT','How articles fare for each standard (1, 2 or 3 days).','<button class="btn" id="sdCsv">Download CSV</button>')+'<div class="tw" id="sd"></div></div>'+
+    '<div class="sec">'+secHead('By destination division','','<button class="btn" id="sdvCsv">Download CSV</button>')+'<div class="tw" id="sdv"></div></div>';
+  bindKpis(el,rows);
+  el.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{ui.mxMeasure=b.dataset.x;tStd()});
+  // matrix
+  const m=aggregate(rows,i=>D.C.bdiv[i]*1e6+D.C.div[i]);
+  const bd=[...new Set([...m.keys()].map(x=>Math.floor(x/1e6)))].sort((a,b)=>D.dict.bdiv[a].localeCompare(D.dict.bdiv[b]));
+  const dd=[...new Set([...m.keys()].map(x=>x%1e6))].sort((a,b)=>D.dict.div[a].localeCompare(D.dict.div[b]));
+  const color=(v)=>{
+    if(v==null||isNaN(v))return'';
+    if(measure==='wp'){const t=Math.max(0,Math.min(1,(v-50)/50));return'background:'+mix([251,231,234],[227,243,233],t)}
+    if(measure==='avg'){const t=Math.max(0,Math.min(1,(v-1)/4));return'background:'+mix([227,243,233],[251,231,234],t)}
+    return v>0?'background:'+mix([255,255,255],[245,190,198],Math.min(1,v/50)):'';
+  };
+  let h='<table class="lg mx"><thead><tr class="hd"><th class="h-lead lead" style="top:0">Booking ↓ / Destination →</th>'+dd.map(c=>'<th class="h-std" style="top:0">'+esc(D.dict.div[c])+'</th>').join('')+'</tr></thead><tbody>';
+  bd.forEach(b=>{h+='<tr><td class="lead">'+esc(D.dict.bdiv[b])+'</td>';dd.forEach(d=>{const x=m.get(b*1e6+d);if(!x){h+='<td class="z"></td>';return}
+    const v=val(x,measure);const txt=measure==='wp'?fpct(v):measure==='avg'?(isNaN(v)?'':v.toFixed(1)):fmt(v);
+    h+='<td class="cell" style="'+color(v)+'" data-b="'+b+'" data-d="'+d+'" title="'+esc(D.dict.bdiv[b]+' → '+D.dict.div[d])+': '+fmt(x.n)+' articles, '+fmt(x.w)+' within, '+fmt(x.b)+' beyond, '+fmt(x.po)+' overdue">'+txt+'</td>'});h+='</tr>'});
+  $('mx').innerHTML=h+'</tbody></table>';
+  $('mx').onclick=e=>{const td=e.target.closest('td.cell');if(!td)return;const b=+td.dataset.b,d=+td.dataset.d;
+    const pm=measure==='po'?'po':measure==='b'?'b':null;const p=pm?metricPred(pm):()=>true;
+    openList((pm?mname(pm).replace(/^./,c=>c.toUpperCase()):'Articles')+' — '+D.dict.bdiv[b]+' → '+D.dict.div[d],rows.filter(i=>D.C.bdiv[i]===b&&D.C.div[i]===d&&p(i)))};
+  holidayTable($('ho'),rows);
+  $('hoCsv').onclick=()=>tableCSV($('ho'),'Holiday adjustments');
+  ledger({id:'sd',el:$('sd'),rows,levels:[LV.std],cols:'std',sort:'name',dir:1});
+  ledger({id:'sdv',el:$('sdv'),rows,levels:[LV.div],cols:'std',sort:'name',dir:1});
+  $('sdCsv').onclick=()=>tableCSV($('sd'),'By standard TAT');
+  $('sdvCsv').onclick=()=>tableCSV($('sdv'),'Standard TAT by destination division');
+}
+function holidayTable(el,rows){
+  if(!D.holCount){
+    el.innerHTML='<div class="more" style="text-align:left;padding:14px">No holidays reached the dashboard. Add a tab named <b>Holidays</b> to the <b>Bulk1</b> Google Sheet (dates in column A from row 2, occasion in column B), update Code.gs and deploy a new version. The list is picked up within 10 minutes.</div>';
+    el.onclick=null;return;
+  }
+  // group by the holiday on which the deadline fell (booking + standard)
+  const by=new Map(); D.holDays.forEach(d=>by.set(d,{dl:[],rescued:[],pend:[],other:[]}));
+  for(const i of rows){
+    if(!D.HA[i])continue;
+    const g=by.get(D.C.bday[i]+D.C.std[i]); if(!g)continue;
+    if(D.S[i]===0){g.dl.push(i); if(D.RAW[i]>D.C.std[i]&&D.STD[i]===1)g.rescued.push(i)}
+    else if(D.S[i]===3)g.pend.push(i);
+  }
+  const keys=['dl','rescued','pend'];
+  let h='<table class="lg"><thead><tr class="hd"><th class="h-lead lead" style="top:0">Holiday</th><th class="h-lead" style="top:0">Occasion</th>'+
+    '<th class="h-std gs" style="top:0">Delivered, holiday not counted</th><th class="h-std" style="top:0">Within standard only because of the holiday</th><th class="h-age gs" style="top:0">Pending, holiday not counted</th></tr></thead><tbody>';
+  const tot={dl:0,rescued:0,pend:0};
+  D.holDays.forEach(d=>{const g=by.get(d);keys.forEach(k=>tot[k]+=g[k].length);
+    h+='<tr><td class="lead">'+dstr(d)+'</td><td class="lead2">'+esc(D.holNames[d]||'')+'</td>'+
+      keys.map((k,n)=>'<td class="'+(n===2?'c-age gs':'c-std'+(n?'':' gs'))+(g[k].length?' k':' z')+'" data-d="'+d+'" data-k="'+k+'">'+fmt(g[k].length)+'</td>').join('')+'</tr>'});
+  h+='<tr class="tot"><td class="lead">Total</td><td></td>'+keys.map((k,n)=>'<td class="'+(n===2?'gs':(n?'':'gs'))+'">'+fmt(tot[k])+'</td>').join('')+'</tr></tbody></table>';
+  el.innerHTML=h;
+  const T={dl:'Delivered, holiday not counted',rescued:'Within standard because of the holiday',pend:'Pending, holiday not counted'};
+  el.onclick=e=>{const td=e.target.closest('td.k[data-d]');if(!td)return;const g=by.get(+td.dataset.d);
+    openList(T[td.dataset.k]+' — '+dstr(+td.dataset.d),g[td.dataset.k])};
+}
+function mix(a,b,t){return'rgb('+a.map((x,k)=>Math.round(x+(b[k]-x)*t)).join(',')+')'}
+
+/* ---------- Pending ---------- */
+function tPending(){
+  const el=$('p-pending'); const scope=ui.pendScope=ui.pendScope||'ap';
+  const base=scope==='ap'?apRows():Array.from(IDX);
+  const rows=base.filter(i=>D.S[i]===3); const s=total(rows);
+  el.innerHTML=(scope==='ap'?apNote():'')+
+    '<div class="sec-h"><h2>Pending articles</h2><p>Articles whose last event is not a delivery or return.</p><div class="tools">'+
+    '<div class="seg" role="group" aria-label="Destinations"><button data-p="ap" aria-pressed="'+(scope==='ap')+'">AP destinations</button><button data-p="all" aria-pressed="'+(scope==='all')+'">All destinations</button></div>'+
+    '<button class="btn red" id="pdAll">List all pending</button></div></div>'+
+    '<div class="kpis">'+
+      '<div class="kpi bad" data-list="p" tabindex="0" role="button"><div class="v">'+fmt(s.p)+'</div><div class="l">Pending</div></div>'+
+      '<div class="kpi bad" data-list="po" tabindex="0" role="button"><div class="v">'+fmt(s.po)+'</div><div class="l">Past standard TAT</div></div>'+
+      '<div class="kpi" data-list="ab0" tabindex="0" role="button"><div class="v">'+fmt(s.ab0)+'</div><div class="l">Under 3 days old</div></div>'+
+      '<div class="kpi" data-list="ab1" tabindex="0" role="button"><div class="v">'+fmt(s.ab1)+'</div><div class="l">3–6 days old</div></div>'+
+      '<div class="kpi warn" data-list="ab2" tabindex="0" role="button"><div class="v">'+fmt(s.ab2)+'</div><div class="l">7–14 days old</div></div>'+
+      '<div class="kpi bad" data-list="ab3" tabindex="0" role="button"><div class="v">'+fmt(s.ab3)+'</div><div class="l">15 days or older</div></div>'+
+      '<div class="kpi"><div class="v">'+(s.old||0)+'</div><div class="l">Oldest (days)</div></div>'+
+    '</div>'+
+    '<div class="sec">'+secHead('Where pending articles were last scanned','Event office of the last event, heaviest first.','<input class="search" id="peQ" placeholder="Find an office"><button class="btn" id="peCsv">Download CSV</button>')+'<div class="tw" id="pe"></div></div>'+
+    '<div class="sec">'+secHead('Pending by destination division','','<button class="btn" id="pvCsv">Download CSV</button>')+'<div class="tw" id="pv"></div></div>';
+  bindKpis(el,rows);
+  el.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{ui.pendScope=b.dataset.p;tPending()});
+  $('pdAll').onclick=()=>openList('All pending articles',rows);
+  ledger({id:'pe-'+scope,el:$('pe'),rows,levels:[LV.evoff],cols:'pending',sort:'p',dir:-1,searchEl:$('peQ'),limit:150});
+  ledger({id:'pv-'+scope,el:$('pv'),rows,levels:scope==='ap'?[LV.div]:[LV.cir,LV.div],cols:'pending',sort:scope==='ap'?'p':'name',dir:scope==='ap'?-1:1});
+  $('peCsv').onclick=()=>tableCSV($('pe'),'Pending by event office');
+  $('pvCsv').onclick=()=>tableCSV($('pv'),'Pending by destination division');
+}
+
+/* ---------- Article type / Customers / Circles ---------- */
+function tAtype(){
+  const el=$('p-atype');
+  el.innerHTML='<div class="sec">'+secHead('Article type','All destinations in the current filter.','<button class="btn" id="atCsv">Download CSV</button>')+'<div class="tw" id="at"></div></div>'+
+    '<div class="sec">'+secHead('Article type — Andhra Pradesh destinations','','<button class="btn" id="at2Csv">Download CSV</button>')+'<div class="tw" id="at2"></div></div>';
+  ledger({id:'at',el:$('at'),rows:IDX,levels:[LV.atype],cols:'full',sort:'name',dir:1});
+  ledger({id:'at2',el:$('at2'),rows:apRows(),levels:[LV.atype],cols:'full',sort:'name',dir:1});
+  $('atCsv').onclick=()=>tableCSV($('at'),'Article type');
+  $('at2Csv').onclick=()=>tableCSV($('at2'),'AP article type');
+}
+function tCust(){
+  const el=$('p-cust');
+  const custs=new Set(), offs=new Map();
+  for(const i of IDX){custs.add(D.C.cust[i]);let st=offs.get(D.C.boff[i]);if(!st){st=new Set();offs.set(D.C.boff[i],st)}st.add(D.C.cust[i])}
+  const one=F.boff>=0;
+  const title=one?'Customers of '+D.dict.boff[F.boff]:'Customers by booking office';
+  const desc=one?fmt(custs.size)+' customers booked at this office in the current filter. Largest first; click a heading to re-sort.'
+               :fmt(custs.size)+' customers across '+offs.size+' booking offices. Choose a booking office in the filter bar to see only its customers.';
+  el.innerHTML='<div class="sec">'+secHead(title,desc,'<input class="search" id="cuQ" placeholder="Find a customer"><button class="btn" id="cuCsv">Download CSV</button>')+'<div class="tw" id="cu"></div></div>';
+  if(one){
+    ledger({id:'cu1',el:$('cu'),rows:IDX,levels:[LV.cust],cols:'full',searchEl:$('cuQ'),limit:300});
+  }else{
+    const bo=Object.assign({},LV.boff,{label:c=>D.dict.boff[c]+' — '+fmt((offs.get(c)||new Set()).size)+' customers',
+      link:c=>{$('fBoff').value=String(c);fillCustList(c);applyFilters()}});
+    const cu=Object.assign({},LV.cust);
+    ledger({id:'cu2',el:$('cu'),rows:IDX,levels:[bo,cu],cols:'full',searchEl:$('cuQ'),sort:'n',dir:-1,limit:50});
+  }
+  $('cuCsv').onclick=()=>tableCSV($('cu'),title);
+}
+function tCircle(){
+  const el=$('p-circle');
+  el.innerHTML='<div class="sec">'+secHead('Destination circles','Where the articles booked in AP were addressed.','<button class="btn" id="ciCsv">Download CSV</button>')+'<div class="tw" id="ci"></div></div>';
+  ledger({id:'ci',el:$('ci'),rows:IDX,levels:[LV.cir],cols:'full'});
+  $('ciCsv').onclick=()=>tableCSV($('ci'),'Circles summary');
+}
+
+/* ---------- Article search ---------- */
+function tSearch(){
+  const el=$('p-search');
+  if(el.dataset.ready)return;
+  el.dataset.ready='1';
+  el.innerHTML='<div class="sec">'+secHead('Find articles','Paste one or more article numbers, separated by spaces, commas or new lines. Searches all data, ignoring the filters.')+
+    '<textarea class="arts" id="srQ" placeholder="EN516811274IN&#10;EN793909299IN"></textarea>'+
+    '<div style="margin-top:10px;display:flex;gap:10px;align-items:center"><button class="btn" id="srGo">Find articles</button><span id="srMsg" class="fsum" style="margin-left:0"></span></div></div>';
+  $('srGo').onclick=()=>{
+    const want=[...new Set($('srQ').value.toUpperCase().split(/[\s,;]+/).filter(Boolean))];
+    if(!want.length){$('srMsg').textContent='Paste at least one article number.';return}
+    if(!D.artIndex){D.artIndex=new Map();for(let i=0;i<D.N;i++)if(D.keep[i])D.artIndex.set(D.C.art[i].toUpperCase(),i)}
+    const found=[],miss=[];want.forEach(a=>{const i=D.artIndex.get(a);if(i===undefined)miss.push(a);else found.push(i)});
+    $('srMsg').textContent=fmt(found.length)+' found'+(miss.length?', '+fmt(miss.length)+' not in the data: '+miss.slice(0,8).join(', ')+(miss.length>8?' …':''):'');
+    if(found.length)openList('Article search',found);
+  };
+}
+
+/* =====================================================================
+   BOOT
+   ===================================================================== */
+$('btnReload').onclick=()=>location.reload();
+$('btnRebuild').onclick=async()=>{
+  const b=$('btnRebuild');b.disabled=true;b.textContent='Rebuilding…';
+  try{const r=await getJSON(API_URL+'?action=rebuild');const x=r.rebuild||{};
+    alert(x.busy?'A rebuild is already running. Try again in a few minutes.':
+      'Rebuilt: '+((x.built||[]).join(', ')||'none')+'\nUnchanged: '+((x.unchanged||[]).join(', ')||'none')+
+      ((x.failed||[]).length?'\nFailed: '+x.failed.join('; '):'')+(x.continuing?'\nMore sheets will be rebuilt in the next few minutes.':'')+'\n\nThe page will now reload.');
+    location.reload();
+  }catch(e){alert('Rebuild failed: '+e.message);b.disabled=false;b.textContent='Rebuild from sheets'}
+};
+loadAll().catch(e=>{$('loader').hidden=false;$('loadErr').textContent=e.message||String(e)});
+</script>
+</body>
+</html>

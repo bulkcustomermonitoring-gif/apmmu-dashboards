@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PMVK Toolkit Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<script>
+/* ================== SETTINGS ==================
+   Paste the Apps Script web-app URL (ends with /exec) between the quotes.
+   You can also leave it blank and paste the link on the screen when the page opens. */
+var DATA_URL = 'https://script.google.com/macros/s/AKfycby8SWn4jVyegW71qRAFXJ_JvIubcz3RARPxyq5Kf2beBbdnCbNqsirQkzpgO69F5pBd/exec';
+var API_KEY  = '';   // only if you set CONFIG.API_KEY in Code.gs
+</script>
+<style>
+:root{
+  --bg:#F2F4F9; --card:#FFFFFF; --ink:#1F2840; --muted:#6A7389; --line:#E2E6EF; --soft:#F3F5FA;
+  --head1:#283A66; --head2:#4560A6;
+  --final:#7286DA; --deliv:#4FAF8D; --rts:#EDB25E; --recon:#5AAAD6; --nobk:#B394DA; --pend:#8E98AE;
+  --good:#3E9E7C; --warn:#C9893A;
+  --shadow:0 1px 2px rgba(31,40,64,.05),0 6px 18px rgba(31,40,64,.06);
+  --num:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --text:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121827; --card:#1A2234; --ink:#E5E9F2; --muted:#9AA3B8; --line:#2A3449; --soft:#202A3E;
+    --head1:#1B2747; --head2:#2F4579;
+    --final:#8E9DF0; --deliv:#62C6A2; --rts:#F0BE72; --recon:#6DBBE6; --nobk:#C4A8EA; --pend:#9AA3B8;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121827; --card:#1A2234; --ink:#E5E9F2; --muted:#9AA3B8; --line:#2A3449; --soft:#202A3E;
+  --head1:#1B2747; --head2:#2F4579;
+  --final:#8E9DF0; --deliv:#62C6A2; --rts:#F0BE72; --recon:#6DBBE6; --nobk:#C4A8EA; --pend:#9AA3B8;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--text);-webkit-font-smoothing:antialiased}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--final);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto;padding:0 20px}
+
+/* ---------- header ---------- */
+header{background:linear-gradient(120deg,var(--head1),var(--head2));color:#fff}
+.top{display:flex;flex-wrap:wrap;gap:14px 28px;align-items:flex-end;justify-content:space-between;padding:18px 0 12px}
+h1{margin:0;font:700 28px/1.1 var(--num);letter-spacing:.3px}
+.asof{margin:4px 0 0;color:rgba(255,255,255,.78);font-size:13.5px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.controls label{display:flex;flex-direction:column;font-size:12px;color:rgba(255,255,255,.75);gap:3px}
+.controls select{min-width:170px;padding:7px 10px;border:1px solid rgba(255,255,255,.25);border-radius:8px;background:rgba(255,255,255,.12);color:#fff}
+.controls select option{color:#1F2840}
+.hbtn{padding:7px 14px;border:1px solid rgba(255,255,255,.3);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-weight:600;font-size:14px}
+.hbtn:hover{background:rgba(255,255,255,.22)}
+.hbtn[disabled]{opacity:.55;cursor:progress}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;padding-top:4px}
+nav.tabs button{border:0;background:none;color:rgba(255,255,255,.75);padding:10px 16px;font-weight:600;font-size:14.5px;border-radius:10px 10px 0 0;cursor:pointer;white-space:nowrap}
+nav.tabs button:hover{color:#fff}
+nav.tabs button[aria-selected="true"]{background:var(--bg);color:var(--ink)}
+
+main.wrap{padding-top:20px;padding-bottom:40px}
+section.view[hidden]{display:none}
+
+/* ---------- cards ---------- */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.kpi{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:14px 16px;border-left:5px solid var(--c,var(--pend))}
+.kpi .lbl{font-size:13px;color:var(--muted);font-weight:600}
+.kpi .val{font:600 38px/1.1 var(--num);font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .sub{font-size:12.5px;color:var(--muted)}
+.meter{height:6px;background:var(--soft);border-radius:4px;margin-top:8px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--c,var(--pend));border-radius:4px}
+
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+.grid.g31{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:16px 18px 14px;min-width:0}
+.card.wide{grid-column:1/-1}
+.card h2{margin:0;font:600 16px/1.3 var(--text)}
+.card .note{margin:2px 0 12px;color:var(--muted);font-size:12.5px}
+.cv{position:relative;height:300px}
+
+/* pendency equation */
+.eq{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 14px;margin-top:6px}
+.term{display:flex;flex-direction:column}
+.term .v{font:600 40px/1 var(--num);font-variant-numeric:tabular-nums}
+.term .k{font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-top:4px}
+.op{font:500 34px/1 var(--num);color:var(--muted);padding-bottom:18px}
+.term.res{background:color-mix(in srgb,var(--final) 14%,transparent);border-radius:12px;padding:10px 16px 8px}
+.term.res .v{font-size:54px;color:var(--final);font-weight:700}
+.term.res .k{color:var(--ink);font-weight:600}
+.sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+.stack{display:flex;height:16px;border-radius:8px;overflow:hidden;margin-top:18px;background:var(--soft)}
+.stack span{height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12.5px;color:var(--muted);margin-top:8px}
+.legend span{display:flex;align-items:center;gap:6px}
+
+/* tables */
+.tbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.seg{display:inline-flex;background:var(--soft);border-radius:9px;padding:3px}
+.seg button{border:0;background:none;padding:5px 12px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.scroll{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-weight:600;color:var(--muted);font-size:12px;vertical-align:bottom;background:var(--card)}
+th.grp{text-align:center;color:var(--ink);border-bottom:2px solid var(--line)}
+.l{text-align:left}
+tr.sub td{font-weight:700;background:var(--soft)}
+tr.grand td{font-weight:700;background:color-mix(in srgb,var(--final) 12%,transparent)}
+td.b{font-weight:700}
+td.z{color:var(--muted);opacity:.45}
+tbody tr.div:hover td{background:var(--soft);cursor:pointer}
+.pbar{display:inline-flex;align-items:center;gap:6px}
+.pbar i{display:inline-block;width:56px;height:6px;border-radius:3px;background:var(--soft);position:relative;overflow:hidden}
+.pbar i b{position:absolute;inset:0 auto 0 0;background:var(--deliv);border-radius:3px}
+.tnote{color:var(--muted);font-size:12.5px;margin:10px 2px 0}
+
+.checks{margin-top:18px;font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.ok{color:var(--good);font-weight:600}.bad{color:var(--warn);font-weight:600}
+.warn{background:color-mix(in srgb,var(--rts) 18%,var(--card));border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:14px}
+.empty{color:var(--muted);font-size:14px;padding:40px 10px;text-align:center}
+
+/* loading + connect screen */
+#loading{padding:90px 0;text-align:center;color:var(--muted)}
+.spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--final);border-radius:50%;margin:0 auto 12px;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#problem,#connect{max-width:680px;margin:50px auto;background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:24px 26px}
+#problem h2,#connect h2{margin:0 0 6px;font-size:19px}
+#problem p,#problem li{font-size:14px}
+#problem ol{padding-left:20px;margin:6px 0 4px}
+#problem code{background:var(--soft);padding:1px 5px;border-radius:5px;font-size:12.5px;word-break:break-all}
+.lbtn{margin:12px 0 0 12px;background:none;border:0;color:var(--final);cursor:pointer;text-decoration:underline;font-size:13.5px}
+#connect p{color:var(--muted);margin:0 0 12px;font-size:14px}
+#connect ol{color:var(--muted);font-size:13.5px;padding-left:20px;margin:0 0 16px}
+#connect input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--soft)}
+.pbtn{margin-top:12px;padding:9px 18px;border:0;border-radius:9px;background:var(--final);color:#fff;font-weight:600;cursor:pointer}
+.err{color:var(--warn);font-size:13.5px;margin-top:10px}
+footer{color:var(--muted);font-size:12.5px;padding:0 0 30px}
+footer button{background:none;border:0;color:var(--final);cursor:pointer;padding:0;font-size:12.5px;text-decoration:underline}
+
+@media (prefers-reduced-motion: reduce){.spin{animation:none}}
+@media (max-width:980px){ .kpis{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:860px){
+  .grid,.grid.g31{grid-template-columns:1fr}
+  .term .v{font-size:30px}.term.res .v{font-size:42px}.op{font-size:26px;padding-bottom:16px}
+  .kpi .val{font-size:30px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1 id="title">PMVK Toolkit Dashboard</h1>
+        <p class="asof" id="asof">Connecting to the spreadsheet…</p>
+      </div>
+      <div class="controls">
+        <label>Region<select id="selRegion"><option>All</option></select></label>
+        <label>Division<select id="selDivision"><option>All</option></select></label>
+        <button class="hbtn" id="btnReset" type="button">Show all</button>
+        <button class="hbtn" id="btnRefresh" type="button" title="Re-read the spreadsheet now">Refresh data</button>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Dashboard pages">
+      <button role="tab" type="button" data-t="overview" aria-selected="true">Overview</button>
+      <button role="tab" type="button" data-t="portal" aria-selected="false">Portal summary</button>
+      <button role="tab" type="button" data-t="recon" aria-selected="false">Reconciliation summary</button>
+      <button role="tab" type="button" data-t="month" aria-selected="false">Division-wise booking month</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="loading" hidden><div class="spin"></div>Reading PMVK1–3 and Reconciliation sheets… (first load can take up to a minute)</div>
+
+  <div id="connect" hidden>
+    <h2>Connect to your Google Sheet</h2>
+    <p>Paste the Apps Script web-app link. It is saved in this browser, so you only do this once.</p>
+    <ol>
+      <li>Google Sheet → Extensions → Apps Script → Deploy → Manage deployments.</li>
+      <li>Copy the Web app URL (it ends with <b>/exec</b>).</li>
+    </ol>
+    <input id="urlInput" type="url" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Web app URL">
+    <button class="pbtn" id="btnConnect" type="button">Connect and load data</button>
+    <div class="err" id="connectErr"></div>
+  </div>
+
+  <div id="problem" hidden>
+    <h2 id="pTitle">The dashboard could not get data from the Google Sheet</h2>
+    <div id="pBody"></div>
+    <button class="pbtn" id="btnRetry" type="button">Try again</button>
+    <button class="lbtn" id="btnOther" type="button">Use a different data link</button>
+  </div>
+
+  <div id="app" hidden>
+    <div id="warnings"></div>
+
+    <!-- ================= OVERVIEW ================= -->
+    <section class="view" id="v-overview">
+      <div class="kpis" id="ovKpis"></div>
+      <div class="grid g31">
+        <div class="card">
+          <h2>How final pendency is worked out</h2>
+          <p class="note">Pending toolkits less those in RTS, under reconciliation, or without booking details.</p>
+          <div class="eq" id="ovEq"></div>
+          <div class="stack" id="ovStack"></div>
+          <div class="legend" id="ovLegend"></div>
+        </div>
+        <div class="card">
+          <h2>Pending toolkits split</h2>
+          <p class="note">Share of all pending toolkits.</p>
+          <div class="cv" style="height:220px"><canvas id="chOvDonut"></canvas></div>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <h2>Final pendency by division</h2>
+          <p class="note">Highest first. Click a bar to focus on that division.</p>
+          <div class="cv"><canvas id="chOvDiv"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Delivery rate by division</h2>
+          <p class="note">Delivered toolkits as a share of all toolkits, lowest first.</p>
+          <div class="cv"><canvas id="chOvRate"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Final pendency by booking month</h2>
+          <p class="note">How old the still-pending toolkits are. Older months are shaded deeper.</p>
+          <div class="cv"><canvas id="chOvMonth"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Trend since snapshots began</h2>
+          <p class="note">Final pendency and no-booking cases on each saved snapshot date.</p>
+          <div class="cv" id="trendBox"><canvas id="chOvTrend"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PORTAL SUMMARY ================= -->
+    <section class="view" id="v-portal" hidden>
+      <div class="kpis" id="ptKpis"></div>
+      <div class="grid">
+        <div class="card wide">
+          <h2>What is holding up pending toolkits, by division</h2>
+          <p class="note">Each bar is a division's pending toolkits split into RTS, reconciliation, no booking details and final pendency.</p>
+          <div class="cv"><canvas id="chPtStack"></canvas></div>
+        </div>
+        <div class="card wide">
+          <div class="tbar">
+            <div><h2>Portal summary</h2></div>
+            <div class="seg" role="group" aria-label="Count by">
+              <button type="button" data-unit="art" aria-pressed="true">Artisans</button>
+              <button type="button" data-unit="par" aria-pressed="false">Parcels</button>
+            </div>
+          </div>
+          <div class="scroll" id="ptTable"></div>
+          <p class="tnote">Final pendency = Pending less RTS, Reconciliation and No booking details. Each toolkit is removed once only (RTS first). Artisans count applications; parcels add up Barcode Count. Click a division row to focus on it.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= RECONCILIATION ================= -->
+    <section class="view" id="v-recon" hidden>
+      <div class="kpis" id="rcKpis"></div>
+      <div class="grid g31">
+        <div class="card">
+          <h2>Open cases by stage</h2>
+          <p class="note">The first step still marked No. Cases also in RTS are shown separately.</p>
+          <div class="cv" style="height:260px"><canvas id="chRcStage"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>Days in transit</h2>
+          <p class="note">Open cases, excluding RTS.</p>
+          <div class="cv" style="height:260px"><canvas id="chRcBucket"></canvas></div>
+        </div>
+        <div class="card wide">
+          <h2>Open cases by division and days in transit</h2>
+          <p class="note">Excluding RTS. Click a bar to focus on that division.</p>
+          <div class="cv"><canvas id="chRcDiv"></canvas></div>
+        </div>
+        <div class="card wide">
+          <h2>Reconciliation summary</h2>
+          <p class="note" id="rcNote"></p>
+          <div class="scroll" id="rcTable"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= BOOKING MONTH ================= -->
+    <section class="view" id="v-month" hidden>
+      <div class="kpis" id="mnKpis"></div>
+      <div class="grid">
+        <div class="card wide">
+          <h2>Final pendency by booking month and region</h2>
+          <p class="note">Stacked by region, oldest month on the left.</p>
+          <div class="cv"><canvas id="chMnStack"></canvas></div>
+        </div>
+        <div class="card wide">
+          <h2>Division-wise final pendency by booking month</h2>
+          <p class="note">Darker cells hold more pending toolkits. Columns on the right add back to total pending.</p>
+          <div class="scroll" id="mnTable"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="checks" id="checks"></div>
+  </div>
+</main>
+<footer class="wrap" id="foot" hidden>Data link: <span id="footUrl"></span> · <button type="button" id="btnChange">Change data link</button></footer>
+
+<script>
+/* ---------- constants ---------- */
+var STEPS = ['Step 1 - Barcode Scanning','Step 2 - Quality Check','Step 3 - Evoucher Redemption','Step 4 - Video Upload','Step 5 - Acknowledgement Letter Upload'];
+var STEP_SHORT = ['1 Barcode scan','2 Quality check','3 eVoucher','4 Video upload','5 Ack. letter'];
+var BUCKETS = ['Below 15 Days','15 - 30 Days','31 - 90 Days','Above 90 Days'];
+var MON = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+var REGION_COLORS = ['--final','--recon','--deliv','--nobk','--rts'];
+
+var D = null, charts = {};
+var state = {region:'All', division:'All', tab:'overview', unit:'art'};
+
+/* ---------- small helpers ---------- */
+function $(id){ return document.getElementById(id); }
+function fmt(n){ return (Math.round(n)||0).toLocaleString('en-IN'); }
+function pct(a,b){ return b ? (a*100/b).toFixed(1)+'%' : '–'; }
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function alpha(hex, a){ var h=hex.replace('#',''); if(h.length===3) h=h.replace(/./g,'$&$&'); var n=parseInt(h,16); return 'rgba('+(n>>16&255)+','+(n>>8&255)+','+(n&255)+','+a+')'; }
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function monthKey(m){ var p=String(m).split(/[_\s-]/), mo=MON[(p[0]||'').slice(0,3).toLowerCase()], y=parseInt(p[1],10); if(isNaN(y)||mo===undefined) return 999999; if(y<100) y+=2000; return y*12+mo; }
+function monthLabel(m){ var p=String(m).split(/[_\s-]/); return (p[0]||'').slice(0,3)+' '+(p[1]||''); }
+function blankLast(a,b){ if(a==='(blank)') return 1; if(b==='(blank)') return -1; return a.localeCompare(b); }
+function inScope(r,d){ return (state.region==='All'||r===state.region) && (state.division==='All'||d===state.division); }
+function scope(r){ return inScope(r[0], r[1]); }
+function scopeText(){ return state.division!=='All' ? state.division+' division' : state.region!=='All' ? state.region+' region' : 'all regions'; }
+
+/* ---------- data loading ---------- */
+
+function showOnly(id){ ['loading','connect','problem','app'].forEach(function(x){ $(x).hidden = (x!==id); }); }
+
+function load(force){
+  if (window.google && google.script && google.script.run){            // opened inside Apps Script
+    showOnly(D ? 'app' : 'loading'); $('btnRefresh').disabled = true;
+    google.script.run.withSuccessHandler(function(j){ receive(JSON.parse(j)); })
+      .withFailureHandler(function(e){ fail('server', e && e.message || String(e)); }).getDashboardData(!!force);
+    return;
+  }
+  if (window.PREVIEW_DATA){ receive(window.PREVIEW_DATA); return; }      // offline preview
+  var url = dataUrl();
+  if (!url){ showConnect(''); return; }
+  if (!D) showOnly('loading');
+  $('btnRefresh').disabled = true; $('btnRefresh').textContent = 'Loading…';
+  var q = url + (url.indexOf('?')<0 ? '?' : '&') + 'v=' + Date.now() + (force ? '&refresh=1' : '') + (API_KEY ? '&key='+encodeURIComponent(API_KEY) : '');
+
+  // 1st try: plain JSON (works when the data link is the new version)
+  var ctrl = window.AbortController ? new AbortController() : null;
+  var t = setTimeout(function(){ if (ctrl) ctrl.abort(); }, 120000);
+  fetch(q, {redirect:'follow', signal: ctrl ? ctrl.signal : undefined})
+    .then(function(r){ return r.text(); })
+    .then(function(txt){
+      clearTimeout(t); txt = (txt||'').trim();
+      if (txt.charAt(0) !== '{') throw {kind:'oldversion'};
+      var p = JSON.parse(txt);
+      if (p.error) throw {kind:'server', msg:p.error};
+      receive(p);
+    })
+    .catch(function(err){
+      clearTimeout(t);
+      if (err && err.kind) { fail(err.kind, err.msg); return; }
+      if (err && err.name === 'AbortError') { fail('timeout'); return; }
+      jsonp(q);                                                        // 2nd try: JSONP
+    });
+}
+function jsonp(q){
+  var cb = 'pmvkCb' + Date.now(), s = document.createElement('script'), done = false;
+  var timer = setTimeout(function(){ if(done) return; finish(); fail('timeout'); }, 120000);
+  function finish(){ done = true; clearTimeout(timer); try{ delete window[cb]; }catch(e){ window[cb]=undefined; } if (s.parentNode) s.parentNode.removeChild(s); }
+  window[cb] = function(p){ if (done) return; finish(); if (p && p.error) fail('server', p.error); else receive(p); };
+  s.onerror = function(){ if (done) return; finish(); fail('oldversion'); };
+  s.src = q + '&callback=' + cb;
+  document.body.appendChild(s);
+}
+function fail(kind, msg){
+  $('btnRefresh').disabled = false; $('btnRefresh').textContent = 'Refresh data';
+  if (D && kind !== 'oldversion') { alert('Refresh failed: ' + (msg || kind) + '. Showing the last loaded data.'); return; }
+  var url = dataUrl(), body = '';
+  if (kind === 'oldversion') {
+    $('pTitle').textContent = 'The data link is still running the old version of the script';
+    body = '<p>The link answered with a web page instead of data. Google keeps serving the old code until a new version is deployed:</p><ol>'+
+      '<li>Open the Google Sheet → <b>Extensions → Apps Script</b>.</li>'+
+      '<li>Make sure <b>Code.gs</b> contains the latest code (it has the line <code>var DATA_LINK_VERSION = 3;</code>). Delete any file named <b>Index</b>. Click <b>Save</b>.</li>'+
+      '<li><b>Deploy → Manage deployments</b> → click the <b>pencil (Edit)</b> icon.</li>'+
+      '<li>Under <b>Version</b> choose <b>New version</b>. Keep <b>Execute as: Me</b> and <b>Who has access: Anyone</b>. Click <b>Deploy</b>.</li>'+
+      '<li>Check: open the link in a new tab. You should see text starting with <code>{"title":"PMVK Toolkit Dashboard"</code>. Then press <b>Try again</b> here.</li></ol>'+
+      '<p>Data link in use: <code>'+esc(url)+'</code></p>';
+  } else if (kind === 'timeout') {
+    $('pTitle').textContent = 'The Google Sheet took too long to answer';
+    body = '<p>Reading 1.37 lakh rows can take up to a minute on the first load. Press <b>Try again</b>. If it keeps happening, open the link in a new tab to see whether Google shows an error.</p><p>Data link in use: <code>'+esc(url)+'</code></p>';
+  } else {
+    $('pTitle').textContent = 'The Google Sheet answered with an error';
+    body = '<p><b>'+esc(msg||'Unknown error')+'</b></p><p>Check that the sheets PMVK1, PMVK2, PMVK3 and Reconciliation exist with their header rows. If the message mentions permission or authorisation, open Apps Script, run the function <b>saveSnapshot</b> once and allow access, then deploy a new version.</p>';
+  }
+  $('pBody').innerHTML = body;
+  showOnly('problem');
+  $('asof').textContent = 'Not loaded';
+}
+function savedUrl(){ try { return localStorage.getItem('pmvk_data_url') || ''; } catch(e){ return ''; } }
+function dataUrl(){ return DATA_URL || savedUrl(); }
+function showConnect(err){
+  showOnly('connect'); $('foot').hidden = true;
+  $('asof').textContent = 'Not connected';
+  $('urlInput').value = dataUrl();
+  $('connectErr').textContent = err || '';
+}
+$('btnConnect').onclick = function(){
+  var u = $('urlInput').value.trim();
+  if (!/^https:\/\/script\.google(usercontent)?\.com\/.+/.test(u)){ $('connectErr').textContent = 'That does not look like an Apps Script web-app link. It starts with https://script.google.com/macros/s/ and ends with /exec.'; return; }
+  try { localStorage.setItem('pmvk_data_url', u); } catch(e){}
+  DATA_URL = u; load(true);
+};
+$('btnRetry').onclick = function(){ load(true); };
+$('btnOther').onclick = function(){ showConnect(''); };
+$('btnChange').onclick = function(){ showConnect(''); };
+
+function receive(p){
+  D = p; $('btnRefresh').disabled = false; $('btnRefresh').textContent = 'Refresh data'; showOnly('app');
+  var url = dataUrl();
+  $('foot').hidden = !url || !!window.PREVIEW_DATA || !!(window.google && google.script); $('footUrl').textContent = url ? url.replace(/^(.{45}).+(.{10})$/,'$1…$2') : '';
+  if (p.title){ $('title').textContent = p.title; document.title = p.title; }
+  buildFilters(); render();
+}
+
+/* ---------- filters ---------- */
+function rdMap(rows){ var m={}; (rows||D.art).forEach(function(r){ (m[r[0]]=m[r[0]]||{})[r[1]]=1; }); return m; }
+function buildFilters(){
+  var regions = Object.keys(rdMap()).sort(blankLast);
+  $('selRegion').innerHTML = '<option>All</option>'+regions.map(function(r){return '<option>'+esc(r)+'</option>';}).join('');
+  if (regions.indexOf(state.region)<0) state.region='All';
+  $('selRegion').value = state.region; fillDivisions();
+}
+function fillDivisions(){
+  var m = rdMap(), divs = {};
+  Object.keys(m).forEach(function(r){ if(state.region==='All'||r===state.region) Object.keys(m[r]).forEach(function(d){divs[d]=1;}); });
+  var list = Object.keys(divs).sort(blankLast);
+  $('selDivision').innerHTML = '<option>All</option>'+list.map(function(d){return '<option>'+esc(d)+'</option>';}).join('');
+  if (list.indexOf(state.division)<0) state.division='All';
+  $('selDivision').value = state.division;
+}
+function regionOf(div){ for (var i=0;i<D.art.length;i++) if (D.art[i][1]===div) return D.art[i][0]; return 'All'; }
+function focusDivision(div){ if(!div||div==='None') return; state.region=regionOf(div); state.division=div; $('selRegion').value=state.region; fillDivisions(); render(); }
+$('selRegion').onchange = function(){ state.region=this.value; state.division='All'; fillDivisions(); render(); };
+$('selDivision').onchange = function(){ state.division=this.value; if(this.value!=='All'&&state.region==='All'){ state.region=regionOf(this.value); $('selRegion').value=state.region; fillDivisions(); } render(); };
+$('btnReset').onclick = function(){ state.region='All'; state.division='All'; buildFilters(); render(); };
+$('btnRefresh').onclick = function(){ load(true); };
+document.querySelectorAll('nav.tabs button').forEach(function(b){
+  b.onclick = function(){ state.tab=b.dataset.t; document.querySelectorAll('nav.tabs button').forEach(function(x){ x.setAttribute('aria-selected', x===b?'true':'false'); }); render(); };
+});
+document.querySelectorAll('.seg button').forEach(function(b){
+  b.onclick = function(){ state.unit=b.dataset.unit; document.querySelectorAll('.seg button').forEach(function(x){ x.setAttribute('aria-pressed', x===b?'true':'false'); }); renderPortalTable(); };
+});
+
+/* ---------- aggregation ---------- */
+function totals(f){
+  var t={total:0,Delivered:0,RTS:0,Reconciliation:0,'No Booking Details':0,'Final Pending':0,parcels:0,pDelivered:0,pRTS:0,pRecon:0,pNobk:0,pFinal:0,both:0};
+  D.art.forEach(function(r){
+    if(!f(r)) return; var n=r[5], p=r[6];
+    t.total+=n; t.parcels+=p; if (t.hasOwnProperty(r[2])) t[r[2]]+=n;
+    if(r[2]==='Delivered') t.pDelivered+=p; else if(r[2]==='RTS') t.pRTS+=p; else if(r[2]==='Reconciliation') t.pRecon+=p; else if(r[2]==='No Booking Details') t.pNobk+=p; else if(r[2]==='Final Pending') t.pFinal+=p;
+    if(r[4]) t.both+=n;
+  });
+  t.Pending=t.total-t.Delivered; t.pPending=t.parcels-t.pDelivered; return t;
+}
+function reconAgg(f){
+  var a={steps:{},buckets:{},rtsOpen:0,open:0,cleared:0,openNoRts:0};
+  STEPS.forEach(function(s){a.steps[s]=0;}); BUCKETS.forEach(function(b){a.buckets[b]=0;});
+  D.recon.forEach(function(r){
+    if(!f(r)) return; var n=r[6];
+    if(r[2]==='Cleared'){ a.cleared+=n; return; } if(r[2]!=='Open') return;
+    a.open+=n; if(r[5]==='Yes'){ a.rtsOpen+=n; return; }
+    a.openNoRts+=n; if(a.steps.hasOwnProperty(r[3])) a.steps[r[3]]+=n; if(a.buckets.hasOwnProperty(r[4])) a.buckets[r[4]]+=n;
+  });
+  return a;
+}
+function divisionsInScope(rows){ var s={}; (rows||D.art).forEach(function(r){ if(scope(r) && !(r[1]==='(blank)')) s[r[1]]=r[0]; }); return s; }
+function groups(rows){
+  var m=rdMap(rows), out=[];
+  Object.keys(m).sort(blankLast).forEach(function(r){ var ds=Object.keys(m[r]).filter(function(d){return inScope(r,d);}).sort(blankLast); if(ds.length) out.push({region:r,divisions:ds}); });
+  return out;
+}
+
+/* ---------- chart helpers ---------- */
+var valueLabels = {id:'valueLabels', afterDatasetsDraw:function(ch){
+  if (ch.config.type!=='bar' || ch.options.scales.x.stacked) return;
+  var ctx=ch.ctx, h=ch.options.indexAxis==='y', suffix=ch.options._suffix||'';
+  ctx.save(); ctx.font='600 11px "Public Sans", sans-serif'; ctx.fillStyle=css('--ink');
+  ch.data.datasets.forEach(function(ds,i){ ch.getDatasetMeta(i).data.forEach(function(el,j){
+    var v=ds.data[j]; if(v===null||v===undefined||(!v&&!suffix)) return; var t=suffix?v.toFixed(1)+suffix:fmt(v);
+    if(h){ ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(t, el.x+5, el.y); }
+    else { ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText(t, el.x, el.y-3); }
+  }); });
+  ctx.restore();
+}};
+var centerText = {id:'centerText', afterDraw:function(ch){
+  if (ch.config.type!=='doughnut' || !ch.options._center) return;
+  var a=ch.chartArea, x=(a.left+a.right)/2, y=(a.top+a.bottom)/2, ctx=ch.ctx;
+  ctx.save(); ctx.textAlign='center'; ctx.fillStyle=css('--ink');
+  ctx.font='700 30px "Barlow Condensed", sans-serif'; ctx.textBaseline='bottom'; ctx.fillText(ch.options._center[0], x, y+6);
+  ctx.font='12px "Public Sans", sans-serif'; ctx.fillStyle=css('--muted'); ctx.textBaseline='top'; ctx.fillText(ch.options._center[1], x, y+8);
+  ctx.restore();
+}};
+function opts(horizontal, extra){
+  var muted=css('--muted'), ink=css('--ink'), line=css('--line');
+  var num={color:muted,font:{size:11},callback:function(v){return fmt(v);}}, cat={color:ink,font:{size:11},autoSkip:false};
+  var o={responsive:true,maintainAspectRatio:false,animation:{duration:300},indexAxis:horizontal?'y':'x',
+    plugins:{legend:{display:false},tooltip:{backgroundColor:css('--head1'),padding:10,cornerRadius:8,callbacks:{label:function(c){ return ' '+(c.dataset.label?c.dataset.label+': ':'')+fmt(c.parsed[horizontal?'x':'y']); }}}},
+    scales:{x:{grid:{color:horizontal?line:'transparent'},border:{display:false},ticks:horizontal?num:cat,beginAtZero:true},
+            y:{grid:{color:horizontal?'transparent':line},border:{display:false},ticks:horizontal?cat:num,beginAtZero:true}}};
+  if (extra) extra(o);
+  return o;
+}
+function draw(id, cfg){
+  if (charts[id]) charts[id].destroy();
+  var el=$(id); if(!el || !window.Chart) return;
+  cfg.plugins=(cfg.plugins||[]).concat([valueLabels, centerText]);
+  charts[id]=new Chart(el, cfg);
+}
+function setH(id, h){ $(id).parentNode.style.height = h+'px'; }
+function bar(color){ return {backgroundColor:color, borderRadius:6, borderSkipped:false, maxBarThickness:34}; }
+function stackedLegend(o){ o.scales.x.stacked=true; o.scales.y.stacked=true; o.plugins.legend={display:true,position:'bottom',labels:{color:css('--ink'),boxWidth:12,boxHeight:12,useBorderRadius:true,borderRadius:3}}; o.interaction={mode:'index',intersect:false}; }
+function clickDiv(labels){ return function(o){ o.onClick=function(e,els){ if(els.length) focusDivision(labels[els[0].index]); }; o.onHover=function(e,els){ e.native.target.style.cursor=els.length?'pointer':'default'; }; }; }
+function kpi(label, value, sub, colorVar, meter){
+  return '<div class="kpi" style="--c:var('+colorVar+')"><div class="lbl">'+label+'</div><div class="val">'+value+'</div><div class="sub">'+sub+'</div>'+
+    (meter!==undefined?'<div class="meter"><i style="width:'+Math.min(100,meter)+'%"></i></div>':'')+'</div>';
+}
+function c(v,cls,extra){ return '<td class="'+(cls||'')+(v?'':' z')+'"'+(extra||'')+'>'+fmt(v)+'</td>'; }
+function tint(v,max,colorVar){ if(!v||!max) return ''; return ' style="background:color-mix(in srgb,var('+colorVar+') '+Math.round(6+38*Math.min(1,v/max))+'%,transparent)"'; }
+function bindRows(id){ $(id).querySelectorAll('tr[data-div]').forEach(function(tr){ tr.onclick=function(){ focusDivision(tr.getAttribute('data-div')); }; }); }
+
+/* ---------- render ---------- */
+function render(){
+  if(!D) return;
+  $('asof').textContent = 'Data as on '+D.asOn+'  |  Showing '+scopeText();
+  $('warnings').innerHTML = (D.warnings||[]).length ? '<div class="warn">'+D.warnings.map(esc).join('<br>')+'</div>' : '';
+  ['overview','portal','recon','month'].forEach(function(t){ $('v-'+t).hidden = t!==state.tab; });
+  if (window.Chart){ Chart.defaults.font.family='"Public Sans", system-ui, sans-serif'; Chart.defaults.color=css('--muted'); }
+  ({overview:renderOverview, portal:renderPortal, recon:renderRecon, month:renderMonth})[state.tab]();
+  renderChecks();
+}
+
+/* ===== Overview ===== */
+function renderOverview(){
+  var t=totals(scope);
+  $('ovKpis').innerHTML =
+    kpi('Total toolkits', fmt(t.total), fmt(t.parcels)+' parcels', '--pend') +
+    kpi('Delivered', fmt(t.Delivered), pct(t.Delivered,t.total)+' of all toolkits', '--deliv', t.total?t.Delivered*100/t.total:0) +
+    kpi('Pending', fmt(t.Pending), fmt(t.pPending)+' parcels', '--rts', t.total?t.Pending*100/t.total:0) +
+    kpi('Final pendency', fmt(t['Final Pending']), fmt(t.pFinal)+' parcels · '+pct(t['Final Pending'],t.Pending)+' of pending', '--final', t.Pending?t['Final Pending']*100/t.Pending:0);
+
+  function term(v,k,col){ return '<div class="term"><span class="v">'+fmt(v)+'</span><span class="k">'+(col?'<i class="sw" style="background:var('+col+')"></i>':'')+k+'</span></div>'; }
+  function op(s){ return '<span class="op" aria-hidden="true">'+s+'</span>'; }
+  $('ovEq').innerHTML = term(t.Pending,'Pending','--pend')+op('−')+term(t.RTS,'RTS','--rts')+op('−')+term(t.Reconciliation,'Reconciliation','--recon')+op('−')+term(t['No Booking Details'],'No booking details','--nobk')+op('=')+
+    '<div class="term res"><span class="v">'+fmt(t['Final Pending'])+'</span><span class="k">Final pendency</span></div>';
+  var parts=[['RTS','--rts','RTS'],['Reconciliation','--recon','Reconciliation'],['No Booking Details','--nobk','No booking details'],['Final Pending','--final','Final pendency']], P=t.Pending||1;
+  $('ovStack').innerHTML = parts.map(function(p){ return '<span title="'+p[2]+': '+fmt(t[p[0]])+'" style="width:'+(t[p[0]]*100/P)+'%;background:var('+p[1]+')"></span>'; }).join('');
+  $('ovLegend').innerHTML = parts.map(function(p){ return '<span><i class="sw" style="background:var('+p[1]+')"></i>'+p[2]+' '+pct(t[p[0]],t.Pending)+'</span>'; }).join('');
+
+  draw('chOvDonut',{type:'doughnut',data:{labels:parts.map(function(p){return p[2];}),datasets:[{data:parts.map(function(p){return t[p[0]];}),backgroundColor:parts.map(function(p){return css(p[1]);}),borderColor:css('--card'),borderWidth:3,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'66%',_center:[fmt(t.Pending),'pending'],plugins:{legend:{position:'right',labels:{color:css('--ink'),boxWidth:12,boxHeight:12,useBorderRadius:true,borderRadius:3}},tooltip:{callbacks:{label:function(c){return ' '+c.label+': '+fmt(c.parsed)+' ('+pct(c.parsed,t.Pending)+')';}}}}}});
+
+  // final by division
+  var divs=divisionsInScope(), fd=Object.keys(divs).map(function(d){ return [d, totals(function(r){return r[1]===d && scope(r);})]; });
+  var byF=fd.slice().sort(function(a,b){return b[1]['Final Pending']-a[1]['Final Pending'];});
+  var lab=byF.map(function(x){return x[0];});
+  setH('chOvDiv', Math.max(140, lab.length*24+40));
+  draw('chOvDiv',{type:'bar',data:{labels:lab,datasets:[Object.assign({data:byF.map(function(x){return x[1]['Final Pending'];})},bar(css('--final')))]},options:opts(true,function(o){o.layout={padding:{right:44}}; clickDiv(lab)(o);})});
+
+  var byR=fd.slice().sort(function(a,b){return (a[1].Delivered/(a[1].total||1))-(b[1].Delivered/(b[1].total||1));});
+  var labR=byR.map(function(x){return x[0];}), rates=byR.map(function(x){return x[1].total? x[1].Delivered*100/x[1].total : 0;});
+  var mn=Math.max(0,Math.floor(Math.min.apply(null,rates.concat([100]))/5)*5-5);
+  setH('chOvRate', Math.max(140, labR.length*24+40));
+  draw('chOvRate',{type:'bar',data:{labels:labR,datasets:[Object.assign({data:rates},bar(css('--deliv')))]},options:opts(true,function(o){
+    o._suffix='%'; o.layout={padding:{right:44}}; o.scales.x.min=mn; o.scales.x.max=100; o.scales.x.ticks.callback=function(v){return v+'%';};
+    o.plugins.tooltip.callbacks.label=function(c){ var x=byR[c.dataIndex][1]; return ' '+c.parsed.x.toFixed(1)+'% delivered ('+fmt(x.Delivered)+' of '+fmt(x.total)+')'; }; clickDiv(labR)(o);})});
+
+  // booking month aging
+  var mm={}; D.art.forEach(function(r){ if(r[2]==='Final Pending'&&scope(r)){ var k=r[3]||'Not given'; mm[k]=(mm[k]||0)+r[5]; } });
+  var months=Object.keys(mm).sort(function(a,b){return monthKey(a)-monthKey(b);}), fc=css('--final');
+  var cols=months.map(function(m,i){ return alpha(fc, months.length>1 ? 1-0.6*(i/(months.length-1)) : 1); });
+  draw('chOvMonth',{type:'bar',data:{labels:months.map(monthLabel),datasets:[{data:months.map(function(m){return mm[m];}),backgroundColor:cols,borderRadius:6,borderSkipped:false,maxBarThickness:34}]},options:opts(false,function(o){o.layout={padding:{top:20}};})});
+
+  // trend
+  var snaps=(D.snaps||[]).filter(function(s){return inScope(s[1],s[2]);}), bd={};
+  snaps.forEach(function(s){ var b=bd[s[0]]||(bd[s[0]]={f:0,n:0}); b.f+=s[7]; b.n+=s[6]; });
+  var dates=Object.keys(bd).sort(function(a,b){return dkey(a)-dkey(b);});
+  if (dates.length<2){
+    if (charts.chOvTrend){ charts.chOvTrend.destroy(); delete charts.chOvTrend; }
+    $('trendBox').innerHTML='<div class="empty">The trend appears once two or more snapshots are saved.<br>In the Google Sheet use PMVK Dashboard › Save today\'s snapshot after each data paste.</div>';
+  } else {
+    if (!$('chOvTrend')) $('trendBox').innerHTML='<canvas id="chOvTrend"></canvas>';
+    var f=css('--final'), n=css('--nobk');
+    draw('chOvTrend',{type:'line',data:{labels:dates.map(function(d){return d.slice(0,5);}),datasets:[
+      {label:'Final pendency',data:dates.map(function(d){return bd[d].f;}),borderColor:f,backgroundColor:alpha(f,.12),fill:true,tension:.35,pointRadius:2.5,borderWidth:2.5},
+      {label:'No booking details',data:dates.map(function(d){return bd[d].n;}),borderColor:n,backgroundColor:alpha(n,.08),fill:true,tension:.35,pointRadius:2.5,borderWidth:2.5}]},
+      options:opts(false,function(o){o.plugins.legend={display:true,position:'bottom',labels:{color:css('--ink'),boxWidth:12,boxHeight:12,useBorderRadius:true,borderRadius:3}}; o.interaction={mode:'index',intersect:false}; o.scales.x.ticks.autoSkip=true;})});
+  }
+}
+function dkey(s){ var p=s.split('-'); return (+p[2])*10000+(+p[1])*100+(+p[0]); }
+
+/* ===== Portal summary ===== */
+function renderPortal(){
+  var t=totals(scope);
+  $('ptKpis').innerHTML =
+    kpi('Delivered parcels', fmt(t.pDelivered), pct(t.pDelivered,t.parcels)+' of '+fmt(t.parcels)+' parcels', '--deliv', t.parcels?t.pDelivered*100/t.parcels:0) +
+    kpi('Pending parcels', fmt(t.pPending), fmt(t.Pending)+' artisans', '--rts', t.parcels?t.pPending*100/t.parcels:0) +
+    kpi('Excluded from pendency', fmt(t.RTS+t.Reconciliation+t['No Booking Details']), 'RTS '+fmt(t.RTS)+' · Recon. '+fmt(t.Reconciliation)+' · No booking '+fmt(t['No Booking Details']), '--nobk') +
+    kpi('Final pendency', fmt(t['Final Pending']), fmt(t.pFinal)+' parcels', '--final', t.Pending?t['Final Pending']*100/t.Pending:0);
+
+  var divs=divisionsInScope(), rows=Object.keys(divs).map(function(d){return [d,totals(function(r){return r[1]===d&&scope(r);})];}).sort(function(a,b){return b[1].Pending-a[1].Pending;});
+  var lab=rows.map(function(x){return x[0];});
+  var sets=[['RTS','--rts','RTS'],['Reconciliation','--recon','Reconciliation'],['No Booking Details','--nobk','No booking details'],['Final Pending','--final','Final pendency']].map(function(p){
+    return {label:p[2],data:rows.map(function(x){return x[1][p[0]];}),backgroundColor:css(p[1]),borderRadius:3,maxBarThickness:22};
+  });
+  setH('chPtStack', Math.max(160, lab.length*24+70));
+  draw('chPtStack',{type:'bar',data:{labels:lab,datasets:sets},options:opts(true,function(o){stackedLegend(o); clickDiv(lab)(o);})});
+  renderPortalTable();
+}
+function renderPortalTable(){
+  var art=state.unit==='art', gs=groups(), max=0, showSub=gs.length>1||state.division==='All';
+  gs.forEach(function(g){ g.divisions.forEach(function(d){ var t=totals(function(r){return r[0]===g.region&&r[1]===d;}); max=Math.max(max, art?t['Final Pending']:t.pFinal); }); });
+  function line(l1,l2,t,cls,isDiv){
+    var v = art ? [t.Delivered,t.Pending,t.total,t.RTS,t.Reconciliation,t['No Booking Details'],t['Final Pending']] : [t.pDelivered,t.pPending,t.parcels,t.pRTS,t.pRecon,t.pNobk,t.pFinal];
+    var rate = v[2] ? v[0]*100/v[2] : 0;
+    return '<tr class="'+cls+'"'+(isDiv?' data-div="'+esc(l2)+'"':'')+'><td class="l">'+esc(l1)+'</td><td class="l">'+esc(l2)+'</td>'+
+      c(v[0])+c(v[1])+c(v[2])+'<td><span class="pbar">'+rate.toFixed(1)+'%<i><b style="width:'+rate+'%"></b></i></span></td>'+c(v[3])+c(v[4])+c(v[5])+
+      c(v[6],'b',isDiv?tint(v[6],max,'--final'):'')+'</tr>';
+  }
+  var u = art?'artisans':'parcels';
+  var h='<table><thead><tr><th class="l" colspan="2"></th><th class="grp" colspan="4">Toolkit delivery status ('+u+')</th><th class="grp" colspan="4">Pendency breakup ('+u+')</th></tr>'+
+    '<tr><th class="l">Region</th><th class="l">Division</th><th>Delivered</th><th>Pending</th><th>Total</th><th>Delivered %</th><th>Less: RTS</th><th>Less: Recon.</th><th>Less: No booking</th><th>Final pendency</th></tr></thead><tbody>';
+  gs.forEach(function(g){
+    g.divisions.forEach(function(d){ h+=line(g.region,d,totals(function(r){return r[0]===g.region&&r[1]===d;}),'div',true); });
+    if(showSub) h+=line(g.region+' total','',totals(function(r){return r[0]===g.region&&scope(r);}),'sub');
+  });
+  h+=line('Grand total','',totals(scope),'grand')+'</tbody></table>';
+  $('ptTable').innerHTML=h; bindRows('ptTable');
+}
+
+/* ===== Reconciliation ===== */
+function renderRecon(){
+  var a=reconAgg(scope);
+  $('rcKpis').innerHTML =
+    kpi('Open cases (excl. RTS)', fmt(a.openNoRts), 'Waiting at one of the five steps', '--recon') +
+    kpi('Above 90 days', fmt(a.buckets['Above 90 Days']), pct(a.buckets['Above 90 Days'],a.openNoRts)+' of open cases', '--final', a.openNoRts?a.buckets['Above 90 Days']*100/a.openNoRts:0) +
+    kpi('Excluded as RTS', fmt(a.rtsOpen), 'Open cases also in the RTS list', '--rts') +
+    kpi('Cleared to date', fmt(a.cleared), pct(a.cleared,a.cleared+a.open)+' of all cases seen', '--deliv', (a.cleared+a.open)?a.cleared*100/(a.cleared+a.open):0);
+
+  var rc=css('--recon');
+  draw('chRcStage',{type:'bar',data:{labels:STEP_SHORT.concat(['In RTS (excluded)']),datasets:[{data:STEPS.map(function(s){return a.steps[s];}).concat([a.rtsOpen]),
+    backgroundColor:STEPS.map(function(s,i){return alpha(rc,1-i*0.13);}).concat([css('--rts')]),borderRadius:6,borderSkipped:false,maxBarThickness:28}]},options:opts(true,function(o){o.layout={padding:{right:44}};})});
+  var bc=[css('--deliv'),css('--recon'),css('--rts'),css('--final')];
+  draw('chRcBucket',{type:'doughnut',data:{labels:BUCKETS,datasets:[{data:BUCKETS.map(function(b){return a.buckets[b];}),backgroundColor:bc,borderColor:css('--card'),borderWidth:3,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'64%',_center:[fmt(a.openNoRts),'open cases'],plugins:{legend:{position:'bottom',labels:{color:css('--ink'),boxWidth:12,boxHeight:12,useBorderRadius:true,borderRadius:3}},tooltip:{callbacks:{label:function(c){return ' '+c.label+': '+fmt(c.parsed);}}}}}});
+
+  var dv=divisionsInScope(D.recon), rows=Object.keys(dv).map(function(d){ return [d, reconAgg(function(r){return r[1]===d&&scope(r);})]; }).filter(function(x){return x[1].openNoRts>0;}).sort(function(x,y){return y[1].openNoRts-x[1].openNoRts;});
+  var lab=rows.map(function(x){return x[0];});
+  setH('chRcDiv', Math.max(160, lab.length*24+70));
+  draw('chRcDiv',{type:'bar',data:{labels:lab,datasets:BUCKETS.map(function(b,i){return {label:b,data:rows.map(function(x){return x[1].buckets[b];}),backgroundColor:bc[i],borderRadius:3,maxBarThickness:22};})},
+    options:opts(true,function(o){stackedLegend(o); clickDiv(lab)(o);})});
+
+  // table
+  var gs=groups(D.recon), max=0;
+  gs.forEach(function(g){ g.divisions.forEach(function(d){ max=Math.max(max, reconAgg(function(r){return r[0]===g.region&&r[1]===d;}).openNoRts); }); });
+  function line(l1,l2,f,cls,isDiv){
+    var x=reconAgg(f), st=0; STEPS.forEach(function(s){st+=x.steps[s];});
+    return '<tr class="'+cls+'"'+(isDiv?' data-div="'+esc(l2)+'"':'')+'><td class="l">'+esc(l1)+'</td><td class="l">'+esc(l2)+'</td>'+
+      STEPS.map(function(s){return c(x.steps[s]);}).join('')+c(st,'b',isDiv?tint(st,max,'--recon'):'')+
+      BUCKETS.map(function(b){return c(x.buckets[b], b==='Above 90 Days'?'b':'');}).join('')+c(x.rtsOpen)+c(x.open,'b')+'</tr>';
+  }
+  var h='<table><thead><tr><th class="l" colspan="2"></th><th class="grp" colspan="6">Step-wise pending</th><th class="grp" colspan="4">Days in transit</th><th class="grp" colspan="2"></th></tr>'+
+    '<tr><th class="l">Region</th><th class="l">Division</th>'+STEP_SHORT.map(function(s){return '<th>'+s+'</th>';}).join('')+'<th>Total pending</th>'+BUCKETS.map(function(b){return '<th>'+b+'</th>';}).join('')+'<th>Excluded as RTS</th><th>All open cases</th></tr></thead><tbody>';
+  gs.forEach(function(g){
+    g.divisions.forEach(function(d){ h+=line(g.region,d,function(r){return r[0]===g.region&&r[1]===d;},'div',true); });
+    if(gs.length>1||state.division==='All') h+=line(g.region+' total','',function(r){return r[0]===g.region&&scope(r);},'sub');
+  });
+  h+=line('Grand total','',scope,'grand')+'</tbody></table>';
+  $('rcTable').innerHTML=h; bindRows('rcTable');
+  $('rcNote').textContent='Open cases not in RTS. Total pending + Excluded as RTS = All open cases. Days in transit add up to the same total pending.';
+}
+
+/* ===== Booking month ===== */
+function renderMonth(){
+  var mset={}; D.art.forEach(function(r){ if(r[2]==='Final Pending'&&r[3]) mset[r[3]]=1; });
+  var months=Object.keys(mset).sort(function(a,b){return monthKey(a)-monthKey(b);});
+  var t=totals(scope), byYear={}, latest=months[months.length-1], latestN=0, oldN=0, cutoff=months.length?monthKey(latest)-6:0;
+  D.art.forEach(function(r){ if(r[2]!=='Final Pending'||!scope(r)||!r[3]) return; var y=Math.floor(monthKey(r[3])/12); byYear[y]=(byYear[y]||0)+r[5]; if(r[3]===latest) latestN+=r[5]; if(monthKey(r[3])<=cutoff) oldN+=r[5]; });
+  var yrs=Object.keys(byYear).sort();
+  $('mnKpis').innerHTML =
+    kpi('Final pendency', fmt(t['Final Pending']), 'Across '+months.length+' booking months', '--final') +
+    kpi('Booked in '+(latest?monthLabel(latest):'–'), fmt(latestN), pct(latestN,t['Final Pending'])+' of final pendency', '--recon', t['Final Pending']?latestN*100/t['Final Pending']:0) +
+    kpi('Older than 6 months', fmt(oldN), 'Booked '+(latest?'on or before '+monthLabel(months.filter(function(m){return monthKey(m)<=cutoff;}).slice(-1)[0]||'–'):''), '--nobk', t['Final Pending']?oldN*100/t['Final Pending']:0) +
+    kpi('By booking year', yrs.map(function(y){return fmt(byYear[y]);}).join(' / ') || '0', yrs.join(' / '), '--rts');
+
+  var regs=Object.keys(rdMap()).filter(function(r){return r!=='(blank)' && (state.region==='All'||r===state.region);}).sort();
+  var sets=regs.map(function(rg,i){
+    var mm={}; D.art.forEach(function(r){ if(r[0]===rg&&r[2]==='Final Pending'&&scope(r)&&r[3]) mm[r[3]]=(mm[r[3]]||0)+r[5]; });
+    return {label:rg,data:months.map(function(m){return mm[m]||0;}),backgroundColor:css(REGION_COLORS[i%REGION_COLORS.length]),borderRadius:3,maxBarThickness:34};
+  });
+  draw('chMnStack',{type:'bar',data:{labels:months.map(monthLabel),datasets:sets},options:opts(false,stackedLegend)});
+
+  var gs=groups(), max=0, cells={};
+  D.art.forEach(function(r){ if(r[2]==='Final Pending'&&r[3]){ var k=r[0]+'|'+r[1]+'|'+r[3]; cells[k]=(cells[k]||0)+r[5]; } });
+  gs.forEach(function(g){ g.divisions.forEach(function(d){ months.forEach(function(m){ max=Math.max(max, cells[g.region+'|'+d+'|'+m]||0); }); }); });
+  function line(l1,l2,f,cls,isDiv){
+    var mm={}, x={fin:0,nb:0,rts:0,rec:0};
+    D.art.forEach(function(r){ if(!f(r)) return;
+      if(r[2]==='Final Pending'){ x.fin+=r[5]; if(r[3]) mm[r[3]]=(mm[r[3]]||0)+r[5]; }
+      else if(r[2]==='No Booking Details') x.nb+=r[5]; else if(r[2]==='RTS') x.rts+=r[5]; else if(r[2]==='Reconciliation') x.rec+=r[5]; });
+    return '<tr class="'+cls+'"'+(isDiv?' data-div="'+esc(l2)+'"':'')+'><td class="l">'+esc(l1)+'</td><td class="l">'+esc(l2)+'</td>'+
+      months.map(function(m){ var v=mm[m]||0; return c(v,'',isDiv?tint(v,max,'--final'):''); }).join('')+
+      c(x.fin,'b')+c(x.nb)+c(x.rts)+c(x.rec)+c(x.fin+x.nb+x.rts+x.rec,'b')+'</tr>';
+  }
+  var yc={}; months.forEach(function(m){ var y=Math.floor(monthKey(m)/12); yc[y]=(yc[y]||0)+1; });
+  var h='<table><thead><tr><th class="l" colspan="2"></th>'+Object.keys(yc).sort().map(function(y){return '<th class="grp" colspan="'+yc[y]+'">Year '+y+'</th>';}).join('')+'<th class="grp" colspan="5">Reconciliation of total pendency</th></tr>'+
+    '<tr><th class="l">Region</th><th class="l">Division</th>'+months.map(function(m){return '<th>'+esc(monthLabel(m))+'</th>';}).join('')+'<th>Final pendency</th><th>No booking</th><th>RTS</th><th>Recon.</th><th>Total pending</th></tr></thead><tbody>';
+  gs.forEach(function(g){
+    g.divisions.forEach(function(d){ h+=line(g.region,d,function(r){return r[0]===g.region&&r[1]===d;},'div',true); });
+    if(gs.length>1||state.division==='All') h+=line(g.region+' total','',function(r){return r[0]===g.region&&scope(r);},'sub');
+  });
+  h+=line('Grand total','',scope,'grand')+'</tbody></table>';
+  $('mnTable').innerHTML=h; bindRows('mnTable');
+}
+
+function renderChecks(){
+  var t=totals(scope), sum=t.RTS+t.Reconciliation+t['No Booking Details']+t['Final Pending'], rc=D.rowCounts||{};
+  $('checks').innerHTML='<div>'+(sum===t.Pending?'<span class="ok">Check OK</span> – RTS + Reconciliation + No booking + Final pendency = '+fmt(t.Pending)+' pending. Nothing removed twice.':'<span class="bad">Check failed</span> – categories add to '+fmt(sum)+' but pending is '+fmt(t.Pending)+'. Re-run the macro and paste again.')+'</div>'+
+    '<div>Toolkits in both RTS and Reconciliation: '+fmt(t.both)+' – counted once, under RTS.</div>'+
+    '<div>Rows read – '+esc(Object.keys(rc).map(function(k){return k+': '+fmt(rc[k]);}).join(', '))+'. Loaded '+new Date(D.generatedAt).toLocaleString('en-IN')+'.</div>';
+}
+
+if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(){ if(D) render(); });
+load(false);
+</script>
+</body>
+</html>
