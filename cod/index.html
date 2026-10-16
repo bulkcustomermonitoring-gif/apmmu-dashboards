@@ -421,7 +421,6 @@ thead th{background:#0D7377;}
     <input type="file" id="xl-file" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="onPick(this)">
     <button class="btn-load" id="btn-refresh" onclick="document.getElementById('xl-file').click()">📂 Load Excel</button>
     <button class="btn-refresh" id="cel-hdr" onclick="celebrate('all')" title="Celebrate the top performers">🎉 Celebrate</button>
-    <button class="btn-refresh" onclick="loadEmbedded()" title="Reload the bundled sample data">↺ Sample</button>
   </div>
 </div>
 
@@ -776,7 +775,7 @@ function loadEmbedded(){
   showSpin(true);
   setTimeout(function(){
     try{ buildG(EMBED.rows, EMBED.meta, EMBED.history);
-      document.getElementById('src-note').innerHTML='Showing bundled data ('+EMBED.meta.reportDate+'). Run <b>GenerateCoDReports</b> in Excel, then click <b>📂 Load Excel</b> (or drag the workbook onto this page) to refresh.';
+      document.getElementById('src-note').innerHTML='Showing the built-in data ('+EMBED.meta.reportDate+'). Click <b>📂 Load Excel</b> (or drag the generated workbook onto this page) — it will be saved and shown after every refresh.';
     } catch(e){ onErr(e); }
     showSpin(false);
   }, 30);
@@ -797,7 +796,11 @@ function readWorkbook(file){
       var hist = [];
       if(wb.Sheets['DATA_History']) hist = XLSX.utils.sheet_to_json(wb.Sheets['DATA_History'], {header:1}).slice(1).filter(function(r){return r && r[0];});
       buildG(rows, meta, hist);
-      document.getElementById('src-note').innerHTML='Loaded <b>'+file.name+'</b> · report date <b>'+(meta.reportDate||'?')+'</b> · generated '+(meta.generated||'?');
+      var pl = makePayload(rows, meta, hist, file.name);
+      CUR_V = pl.v; CUR_PL = pl; pl._ok = 1;
+      setNote(pl, 'Loaded just now — saving…');
+      saveLocal(pl);
+      saveShared(pl);
     } catch(e){ onErr(e); }
     showSpin(false);
   };
@@ -831,7 +834,135 @@ function buildG(rows, meta, hist){
   HIST = hist || [];
   onData(data);
 }
-function loadData(){ loadEmbedded(); }
+function loadData(){ initData(); }
+
+// ===================== PERSISTENCE =====================
+// Loaded Excel data is kept so a refresh shows the latest data:
+//  - published link: shared storage (db) — everyone opening the link sees the latest upload
+//  - any browser: localStorage copy — used for the downloaded HTML file and as a fast first paint
+var LS_KEY='cod_dash_data_v1', CUR_V=null, CUR_PL=null, DBREF=null, DB_UNSUB=null;
+var CHUNK=90000;   // characters per stored part (well under the 256 KiB document limit)
+var COLS=['level','grp','region','div','subDiv','office_id','office_name'].concat(NUMF);
+
+function makePayload(rows, meta, hist, fileName){
+  var data=(rows||[]).map(function(r){ return COLS.map(function(c){ var v=r[c]; return v==null?'':v; }); });
+  return {v:Date.now().toString(36)+Math.random().toString(36).slice(2,6), file:fileName||'', savedAt:new Date().toISOString(),
+          meta:meta||{}, cols:COLS, data:data, history:hist||[]};
+}
+function payloadRows(pl){
+  var cols=pl.cols||COLS;
+  return (pl.data||[]).map(function(a){ var o={}; cols.forEach(function(c,i){ o[c]=a[i]; }); return o; });
+}
+function fmtWhen(iso){
+  try{ var d=new Date(iso); return d.toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }catch(e){ return iso||''; }
+}
+function setNote(pl, status){
+  var m=pl.meta||{};
+  document.getElementById('src-note').innerHTML=
+    (pl.file?'File <b>'+esc(pl.file)+'</b> · ':'')+'report date <b>'+esc(m.reportDate||'?')+'</b>'+
+    (m.monthlySheet?' · monthly <b>'+esc(m.monthlySheet)+'</b>':'')+
+    ' · loaded '+esc(fmtWhen(pl.savedAt))+
+    (status?' · <span style="font-weight:700">'+status+'</span>':'');
+}
+function showPayload(pl, status){
+  buildG(payloadRows(pl), pl.meta, pl.history);
+  CUR_V=pl.v; CUR_PL=pl;
+  setNote(pl, status);
+}
+
+// ---- browser copy ----
+function saveLocal(pl){ try{ localStorage.setItem(LS_KEY, JSON.stringify(pl)); }catch(e){} }
+function readLocal(){ try{ var t=localStorage.getItem(LS_KEY); return t?JSON.parse(t):null; }catch(e){ return null; } }
+
+// ---- shared copy (published link) ----
+function getDb(){
+  if(DBREF!==null) return Promise.resolve(DBREF||null);
+  if(!(window.claude && typeof window.claude.use==='function')){ DBREF=false; return Promise.resolve(null); }
+  return window.claude.use('db').then(function(db){ DBREF=db||false; return db||null; }, function(){ DBREF=false; return null; });
+}
+function saveShared(pl){
+  getDb().then(function(db){
+    if(!db){ setNote(pl, readLocal()&&readLocal().v===pl.v ? 'saved in this browser' : 'not saved (browser storage blocked)'); return; }
+    var str=JSON.stringify({meta:pl.meta,cols:pl.cols,data:pl.data,history:pl.history});
+    var parts=[]; for(var i=0;i<str.length;i+=CHUNK) parts.push(str.slice(i,i+CHUNK));
+    var oldN=0;
+    db.doc('dashmeta/current').get().then(function(m){ if(m.exists){ oldN=(m.data().n)||0; } })
+    .catch(function(){})
+    .then(function(){
+      // write the parts one after another, then switch the pointer, then tidy up
+      var chain=Promise.resolve();
+      parts.forEach(function(p,i){ chain=chain.then(function(){ return db.doc('dashdata/c'+i).set({v:pl.v,i:i,s:p}); }); });
+      return chain.then(function(){
+        return db.doc('dashmeta/current').set({v:pl.v,n:parts.length,file:pl.file,savedAt:pl.savedAt,
+          reportDate:(pl.meta&&pl.meta.reportDate)||'',monthlySheet:(pl.meta&&pl.meta.monthlySheet)||''});
+      }).then(function(){
+        var del=Promise.resolve();
+        for(var k=parts.length;k<oldN;k++) (function(k){ del=del.then(function(){ return db.doc('dashdata/c'+k).delete().catch(function(){}); }); })(k);
+        return del;
+      });
+    })
+    .then(function(){ setNote(pl, '✔ saved — everyone opening this link now sees this data'); },
+          function(e){
+            var code=e&&e.code;
+            var why = code==='invalid_argument' ? 'you have view-only access, so it is shown for you only'
+                    : code==='quota_exceeded' ? 'shared storage is full'
+                    : 'could not save to shared storage ('+(code||'error')+')';
+            setNote(pl, '⚠ '+why+' · kept in this browser');
+          });
+  });
+}
+function fetchShared(db, meta){
+  var reads=[]; for(var i=0;i<meta.n;i++) reads.push(db.doc('dashdata/c'+i).get());
+  return Promise.all(reads).then(function(snaps){
+    var str='';
+    for(var i=0;i<snaps.length;i++){
+      var d=snaps[i].exists?snaps[i].data():null;
+      if(!d||d.v!==meta.v) throw {code:'mismatch'};
+      str+=d.s;
+    }
+    var o=JSON.parse(str);
+    return {v:meta.v,file:meta.file,savedAt:meta.savedAt,meta:o.meta,cols:o.cols,data:o.data,history:o.history};
+  });
+}
+function watchShared(){
+  getDb().then(function(db){
+    if(!db) return;
+    var busy=false;
+    DB_UNSUB=db.doc('dashmeta/current').onSnapshot(function(snap){
+      if(!snap.exists) return;                     // nothing saved yet: keep what is shown
+      var m=snap.data();
+      if(!m||!m.v||busy) return;
+      if(m.v===CUR_V){ if(CUR_PL&&!CUR_PL._ok){ CUR_PL._ok=1; setNote(CUR_PL,'✔ latest saved data'); } return; }
+      busy=true;
+      var first=!CUR_PL||!CUR_PL._ok;
+      (function attempt(tries){
+        fetchShared(db,m).then(function(pl){
+          busy=false;
+          saveLocal(pl);
+          pl._ok=1; showPayload(pl, first?'✔ latest saved data':'🔄 updated — newer data was just loaded');
+        }, function(e){
+          if(e&&e.code==='mismatch'&&tries<2){ setTimeout(function(){ attempt(tries+1); }, 1500+Math.random()*1500); return; }
+          busy=false;
+        });
+      })(0);
+    }, function(){ /* subscription ended: keep showing current data */ });
+  });
+}
+
+function initData(){
+  var local=readLocal();
+  if(local && local.data && local.data.length){
+    delete local._ok;
+    try{ showPayload(local, (window.claude?'checking for newer saved data…':'saved in this browser')); CUR_V=local.v; }
+    catch(e){ local=null; }
+  }
+  if(!local){
+    loadEmbedded();
+    CUR_V='embedded';
+  }
+  watchShared();
+}
+
 function onData(data){
   G=data;
   showSpin(false);
@@ -1682,7 +1813,7 @@ function renderDivChart(id){
   });
 }
 
-window.onload=function(){loadEmbedded();};
+window.onload=function(){ initData(); };
 </script>
 </body>
 </html>
