@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RMS Transfer Bag Monitor</title>
+<style>
+  html, body { height: 100%; margin: 0; padding: 0; background: #fff; }
+  @media (prefers-color-scheme: dark) { html, body { background: #14161a; } }
+  iframe { display: block; width: 100%; height: 100%; border: 0; }
+
+  /* Shown only if the frame never loads, so the page is never silently blank. */
+  #fb {
+    display: none;
+    position: absolute; inset: 0;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px;
+    padding: 30px 22px; text-align: center;
+    font: 400 13px/1.55 Inter, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #41495a; background: #fff;
+  }
+  #fb.show { display: flex; }
+  #fb p { margin: 0; max-width: 54ch; }
+  #fb a {
+    font-weight: 600; font-size: 12px; text-decoration: none;
+    padding: 8px 15px; border-radius: 8px;
+    background: #1f3864; color: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    #fb { background: #14161a; color: #c8cdd8; }
+    #fb a { background: #d9b45a; color: #2a2206; }
+  }
+</style>
+</head>
+<body>
+
+<iframe id="f" title="RMS Transfer Bag Monitor"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads allow-top-navigation-by-user-activation"></iframe>
+
+<div id="fb">
+  <p>The dashboard could not be shown here. Google sign-in pages refuse to load inside a frame &mdash; open it
+    directly, sign in with the account that can read the spreadsheet, then reopen this page.</p>
+  <a id="fbLink" href="#" target="_blank" rel="noopener">Open the dashboard</a>
+</div>
+
+<script>
+(function () {
+  /* The web app deployment. After a NEW deployment, replace this one line:
+     Apps Script > Deploy > Manage deployments gives the current /exec URL. */
+  var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby3t6FxcddqzuI9K6jrP7vo3uCUrXj5fFCiBPxvrwtFff5vGDdtFnfKWybGV632Wl_Y/exec';
+
+  var f = document.getElementById('f'), fb = document.getElementById('fb'), ok = false;
+  document.getElementById('fbLink').href = WEBAPP_URL;
+
+  // A fresh query string stops the browser serving a cached copy of the page.
+  f.src = WEBAPP_URL + (WEBAPP_URL.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+
+  f.addEventListener('load', function () { ok = true; fb.classList.remove('show'); });
+  setTimeout(function () { if (!ok) { fb.classList.add('show'); } }, 9000);
+})();
+</script>
+</body>
+</html>
